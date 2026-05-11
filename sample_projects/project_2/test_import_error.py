@@ -1,4 +1,4 @@
-from sample_projects.project_2.app import wrong_function
+from sample_projects.project_2.app import add
 
 def test_add():
-    assert wrong_function(2, 2) == 4
+    assert add(2, 2) == 4

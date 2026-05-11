@@ -67,16 +67,6 @@ if failed_runs:
                     errors = analyzer.extract_failure_context(log_text)
 
                     if errors:
-                        diagnosis = reasoner.diagnose_failure(
-                            "\n".join(errors)
-                        )
-                        print("LLM Diagnosis:", diagnosis)
-
-                        patch = patcher.generate_patch(
-                            "\n".join(errors)
-                        )
-                        print("Generated Patch:", patch)
-
                         target_test_path = None
                         for path in sample_test_paths:
                             if os.path.basename(path) in log_text or path in log_text or os.path.relpath(path) in log_text:
@@ -87,8 +77,19 @@ if failed_runs:
                             target_test_path = sample_test_paths[0]
 
                         if target_test_path:
+                            diagnosis = reasoner.diagnose_failure(
+                                "\n".join(errors)
+                            )
+                            print("LLM Diagnosis:", diagnosis)
+
+                            patch = patcher.generate_patch(
+                                "\n".join(errors),
+                                target_file=target_test_path
+                            )
+                            print("Generated Patch:", patch)
+
                             print("Applying patch to:", target_test_path)
                             patcher.apply_patch(target_test_path, patch)
 
-                        validation_result = validator.validate_patch()
-                        print("Validation Result:", validation_result)
+                            validation_result = validator.validate_patch()
+                            print("Validation Result:", validation_result)
