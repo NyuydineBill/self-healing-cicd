@@ -30,3 +30,15 @@ class AnalysisAgent:
                 extracted_errors.extend(matches)
 
         return extracted_errors
+    
+    def extract_failed_file(self, log_text):
+
+        match = re.search(
+            r'File ".*?(sample_projects/.*?\.py)"',
+            log_text
+        )
+
+        if match:
+            return match.group(1)
+
+        return None
