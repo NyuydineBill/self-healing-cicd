@@ -1,3 +1,4 @@
+import os
 import zipfile
 
 from agents.monitoring_agent import MonitoringAgent
@@ -5,6 +6,24 @@ from agents.analysis_agent import AnalysisAgent
 from agents.reasoning_agent import ReasoningAgent
 from agents.patch_agent import PatchAgent
 from agents.validation_agent import ValidationAgent 
+
+
+def discover_sample_tests(base_dir="sample_projects"):
+    sample_tests = []
+    if not os.path.isdir(base_dir):
+        return sample_tests
+
+    for project_name in sorted(os.listdir(base_dir)):
+        project_dir = os.path.join(base_dir, project_name)
+        if not os.path.isdir(project_dir):
+            continue
+
+        for root, _, files in os.walk(project_dir):
+            for filename in sorted(files):
+                if filename.startswith("test_") and filename.endswith(".py"):
+                    sample_tests.append(os.path.join(root, filename))
+
+    return sample_tests
 
 
 monitor = MonitoringAgent()
@@ -16,6 +35,9 @@ validator = ValidationAgent()
 failed_runs = monitor.get_failed_runs()
 
 print("Failed Workflow Runs:", failed_runs)
+
+sample_test_paths = discover_sample_tests()
+print("Discovered sample test files:", sample_test_paths)
 
 if failed_runs:
 
@@ -54,11 +76,19 @@ if failed_runs:
                             "\n".join(errors)
                         )
                         print("Generated Patch:", patch)
-                        patcher.apply_patch(
-                            "sample_projects/project_1/test_app.py",
-                            patch
-                        )
 
+                        target_test_path = None
+                        for path in sample_test_paths:
+                            if os.path.basename(path) in log_text or path in log_text or os.path.relpath(path) in log_text:
+                                target_test_path = path
+                                break
+
+                        if not target_test_path and sample_test_paths:
+                            target_test_path = sample_test_paths[0]
+
+                        if target_test_path:
+                            print("Applying patch to:", target_test_path)
+                            patcher.apply_patch(target_test_path, patch)
 
                         validation_result = validator.validate_patch()
                         print("Validation Result:", validation_result)
