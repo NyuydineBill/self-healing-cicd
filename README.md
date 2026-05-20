@@ -66,6 +66,8 @@ Already configured in [.github/workflows/self-heal.yml](.github/workflows/self-h
 
 Push to `main` → **Test Pipeline** fails → **Self-Heal on Failure** runs → review PR → merge.
 
+**Note:** Test Pipeline runs `pytest tests/ sample_projects/`. If CI is green, self-heal will not auto-start (nothing to fix). Use **Actions → Self-Heal on Failure → Run workflow** to test manually, or push a failing sample test.
+
 ### 4. Offline repair (cached logs, no GitHub API)
 
 ```bash
