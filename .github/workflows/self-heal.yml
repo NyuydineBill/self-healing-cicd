@@ -35,17 +35,18 @@ jobs:
 
       - name: Pre-flight check
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           GITHUB_OWNER: ${{ github.repository_owner }}
           GITHUB_REPO: ${{ github.event.repository.name }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GIT_ENABLED: "true"
           AUTO_APPROVE_PATCHES: "true"
           REQUIRE_APPROVAL: "false"
         run: python main.py check
 
       - name: Run self-healing orchestrator
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           GITHUB_OWNER: ${{ github.repository_owner }}
           GITHUB_REPO: ${{ github.event.repository.name }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

@@ -78,13 +78,23 @@ def run_health_check(settings: Settings | None = None) -> int:
         except OSError as exc:
             add(f"Writable {directory.name}/", False, str(exc))
 
-    # Offline cache
+    # Offline cache (required only when OFFLINE_MODE=true)
     offline_dir = settings.logs_dir / "extracted"
-    add(
-        "Offline log cache",
-        offline_dir.is_dir(),
-        f"{len(list(offline_dir.iterdir())) if offline_dir.is_dir() else 0} run(s) cached",
+    cached_count = (
+        len(list(offline_dir.iterdir())) if offline_dir.is_dir() else 0
     )
+    if settings.offline_mode:
+        add(
+            "Offline log cache",
+            cached_count > 0,
+            f"{cached_count} run(s) under {offline_dir} (required for OFFLINE_MODE)",
+        )
+    else:
+        add(
+            "Offline log cache",
+            True,
+            f"{cached_count} run(s) cached (optional unless OFFLINE_MODE=true)",
+        )
 
     # Print report
     print("\nSelf-Healing CI/CD — Pre-flight Check\n" + "=" * 40)

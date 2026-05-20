@@ -17,7 +17,14 @@ All five original agents (`MonitoringAgent`, `AnalysisAgent`, `ReasoningAgent`, 
 
 ---
 
-## Update: Full product release (latest)
+## Update: CI pre-flight fix (latest)
+
+- **Offline log cache** no longer fails pre-flight when empty unless `OFFLINE_MODE=true` (fixes GitHub Actions check on fresh runners).
+- **self-heal.yml** check step now sets `GIT_ENABLED=true` so git repository is validated before heal.
+
+---
+
+## Update: Full product release
 
 Production-grade features for real deployment beyond thesis demo.
 
