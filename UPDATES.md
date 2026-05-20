@@ -17,7 +17,14 @@ All five original agents (`MonitoringAgent`, `AnalysisAgent`, `ReasoningAgent`, 
 
 ---
 
-## Update: CI pre-flight fix (latest)
+## Update: Git commit fix (latest)
+
+- **`utils/git_repair.py`**: use `git.Actor(name, email)` for commits (fixes `AttributeError: 'str' object has no attribute 'name'` in GitHub Actions).
+- Repair can succeed in validation but no longer crashes on commit; git errors are logged and returned in `git_info`.
+
+---
+
+## Update: CI pre-flight fix
 
 - **Offline log cache** no longer fails pre-flight when empty unless `OFFLINE_MODE=true` (fixes GitHub Actions check on fresh runners).
 - **self-heal.yml** check step now sets `GIT_ENABLED=true` so git repository is validated before heal.

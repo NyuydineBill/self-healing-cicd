@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import requests
-from git import GitCommandError, InvalidGitRepositoryError, Repo
+from git import Actor, GitCommandError, InvalidGitRepositoryError, Repo
 
 from config.settings import get_settings
 from utils.logging import get_logger
@@ -89,8 +89,15 @@ class GitRepairManager:
             logger.warning("No changes to commit for %s", target_file)
             return branch
 
-        author = f"{self.settings.git_author_name} <{self.settings.git_author_email}>"
-        commit = repo.index.commit(message, author=author, committer=author)
+        author = Actor(
+            self.settings.git_author_name,
+            self.settings.git_author_email,
+        )
+        commit = repo.index.commit(
+            message,
+            author=author,
+            committer=author,
+        )
         logger.info(
             "Committed repair on %s (%s)",
             branch,

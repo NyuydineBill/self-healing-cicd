@@ -593,8 +593,8 @@ class WorkflowOrchestrator:
                 attempt=attempt,
             )
             return {"branch": branch, "committed": True}
-        except GitRepairError as exc:
-            logger.error("Git commit failed: %s", exc)
+        except (GitRepairError, Exception) as exc:
+            logger.error("Git commit failed: %s", exc, exc_info=True)
             return {"status": "failed", "error": str(exc)}
 
     def _finalize_git_for_run(
