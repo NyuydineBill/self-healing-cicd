@@ -1,0 +1,59 @@
+name: Self-Heal on Failure
+
+on:
+  workflow_run:
+    workflows: ["Test Pipeline"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  self-heal:
+    if: >
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event != 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Pre-flight check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPO: ${{ github.event.repository.name }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          AUTO_APPROVE_PATCHES: "true"
+          REQUIRE_APPROVAL: "false"
+        run: python main.py check
+
+      - name: Run self-healing orchestrator
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPO: ${{ github.event.repository.name }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GIT_ENABLED: "true"
+          GIT_CREATE_PR: "true"
+          GIT_BASE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          AUTO_APPROVE_PATCHES: "true"
+          REQUIRE_APPROVAL: "false"
+          DRY_RUN: "false"
+          EXCLUDED_WORKFLOW_NAMES: "Self-Heal on Failure,self-heal"
+        run: python main.py

@@ -1,40 +1,43 @@
-import os
-from dotenv import load_dotenv
+from typing import Optional
+
 from openai import OpenAI
 
-load_dotenv()
+from config.settings import get_settings
+from utils.llm_client import chat_completion_with_retry
+from utils.logging import get_logger
+from utils.prompts import load_prompt
+
+logger = get_logger("reasoning_agent")
 
 
 class ReasoningAgent:
 
-    def __init__(self):
-        self.client = OpenAI(
-            api_key=os.getenv("OPENAI_API_KEY")
+    def __init__(self, client: Optional[OpenAI] = None):
+        settings = get_settings()
+        self.client = client or OpenAI(api_key=settings.openai_api_key)
+        self.model = settings.openai_model
+
+    def diagnose_failure(
+        self,
+        failure_context: str,
+        failure_type: str = "unknown",
+    ) -> str:
+        prompt = load_prompt(
+            "diagnosis",
+            {
+                "failure_context": failure_context,
+                "failure_type": failure_type,
+            },
         )
 
-    def diagnose_failure(self, failure_context):
+        logger.info("Requesting LLM diagnosis (failure_type=%s)", failure_type)
 
-        prompt = f"""
-You are a software debugging assistant.
-
-Analyze the following CI/CD failure:
-
-{failure_context}
-
-Explain:
-1. What caused the failure?
-2. What should be fixed?
-Keep the answer concise and technical.
-"""
-
-        response = self.client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
+        response = chat_completion_with_retry(
+            self.client,
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
         )
 
-        return response.choices[0].message.content
+        diagnosis = response.choices[0].message.content or ""
+        logger.info("Diagnosis complete (%d chars)", len(diagnosis))
+        return diagnosis

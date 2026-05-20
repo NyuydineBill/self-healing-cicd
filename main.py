@@ -1,188 +1,86 @@
-import os
-import zipfile
+"""
+Entry point for the self-healing CI/CD framework.
 
-from agents.monitoring_agent import MonitoringAgent
-from agents.analysis_agent import AnalysisAgent
-from agents.reasoning_agent import ReasoningAgent
-from agents.patch_agent import PatchAgent
-from agents.validation_agent import ValidationAgent
+Usage:
+  python main.py          Run the orchestrator
+  python main.py check    Pre-flight health check
+  python -m config.check  Same as check
+"""
+
+import sys
+
+from config.settings import get_settings
+from config.validation import ConfigurationError, validate_configuration
+from orchestrator.workflow import WorkflowOrchestrator
+from utils.logging import get_logger, setup_logging
+
+setup_logging()
+logger = get_logger("main")
 
 
-def discover_sample_tests(base_dir="sample_projects"):
+def run_orchestrator() -> int:
+    settings = get_settings()
 
-    sample_tests = []
+    try:
+        validate_configuration(settings)
+    except ConfigurationError as exc:
+        logger.error("%s", exc)
+        return 2
 
-    if not os.path.isdir(base_dir):
-        return sample_tests
+    if settings.dry_run:
+        logger.info("Running in DRY_RUN mode")
+    if settings.offline_mode:
+        logger.info("Running in OFFLINE_MODE (cached logs only)")
+    if settings.require_approval and not settings.auto_approve_patches:
+        logger.info("Patch approval required before apply (REQUIRE_APPROVAL=true)")
 
-    for project_name in sorted(os.listdir(base_dir)):
+    batch = WorkflowOrchestrator().run()
 
-        project_dir = os.path.join(
-            base_dir,
-            project_name
+    logger.info(
+        "Workflow finished: status=%s message=%s",
+        batch.status,
+        batch.message,
+    )
+
+    for result in batch.results:
+        pr_url = (result.git_info or {}).get("pr_url")
+        logger.info(
+            "  Run %s | %s | file=%s | success=%s%s",
+            result.run_id,
+            result.status,
+            result.target_file,
+            result.repair_success,
+            f" | PR: {pr_url}" if pr_url else "",
         )
-
-        if not os.path.isdir(project_dir):
-            continue
-
-        for root, _, files in os.walk(project_dir):
-
-            for filename in sorted(files):
-
-                if (
-                    filename.startswith("test_")
-                    and filename.endswith(".py")
-                ):
-
-                    sample_tests.append(
-                        os.path.join(root, filename)
-                    )
-
-    return sample_tests
-
-
-monitor = MonitoringAgent()
-analyzer = AnalysisAgent()
-reasoner = ReasoningAgent()
-patcher = PatchAgent()
-validator = ValidationAgent()
-
-
-failed_runs = monitor.get_failed_runs()
-
-print("Failed Workflow Runs:", failed_runs)
-
-
-sample_test_paths = discover_sample_tests()
-
-print(
-    "Discovered sample test files:",
-    sample_test_paths
-)
-
-
-if failed_runs:
-
-    run_id = failed_runs[0]["run_id"]
-
-    logs = monitor.get_workflow_logs(run_id)
-
-    if logs:
-
-        os.makedirs("logs", exist_ok=True)
-
-        zip_path = "logs/workflow_logs.zip"
-
-        with open(zip_path, "wb") as f:
-            f.write(logs)
-
-        print(
-            "Workflow logs downloaded successfully."
-        )
-
-        with zipfile.ZipFile(
-            zip_path,
-            "r"
-        ) as zip_ref:
-
-            zip_ref.extractall(
-                "logs/extracted"
+        for attempt in result.attempts:
+            logger.info(
+                "    Attempt %d: validation=%s",
+                attempt.attempt,
+                attempt.validation.get("status"),
             )
 
-            for file_name in zip_ref.namelist():
+    if batch.status in ("no_failures", "no_offline_logs"):
+        return 0
 
-                extracted_path = os.path.join(
-                    "logs/extracted",
-                    file_name
-                )
+    if any(r.status == "dry_run_complete" for r in batch.results):
+        return 0
 
-                if not os.path.isfile(
-                    extracted_path
-                ):
-                    continue
+    return 0 if batch.repair_success else 1
 
-                with open(
-                    extracted_path,
-                    "r",
-                    errors="ignore"
-                ) as log_file:
 
-                    log_text = log_file.read()
+def main(argv: list[str] | None = None) -> int:
+    argv = argv if argv is not None else sys.argv[1:]
 
-                    errors = analyzer.extract_failure_context(
-                        log_text
-                    )
+    if argv and argv[0] in ("check", "--check"):
+        from config.check import run_health_check
 
-                    if not errors:
-                        continue
+        return run_health_check()
 
-                    # Detect actual failed file
-                    target_file = analyzer.extract_failed_file(
-                        log_text
-                    )
+    if argv and argv[0] in ("run", "--run"):
+        argv = argv[1:]
 
-                    # Fallback: try matching test files
-                    if not target_file:
+    return run_orchestrator()
 
-                        for path in sample_test_paths:
 
-                            if (
-                                os.path.basename(path)
-                                in log_text
-                            ):
-
-                                target_file = path
-                                break
-
-                    # Final fallback
-                    if (
-                        not target_file
-                        and sample_test_paths
-                    ):
-
-                        target_file = sample_test_paths[0]
-
-                    print(
-                        "Detected failed file:",
-                        target_file
-                    )
-
-                    if target_file:
-
-                        diagnosis = reasoner.diagnose_failure(
-                            "\n".join(errors)
-                        )
-
-                        print(
-                            "LLM Diagnosis:",
-                            diagnosis
-                        )
-
-                        patch = patcher.generate_patch(
-                            "\n".join(errors),
-                            target_file=target_file
-                        )
-
-                        print(
-                            "Generated Patch:",
-                            patch
-                        )
-
-                        print(
-                            "Applying patch to:",
-                            target_file
-                        )
-
-                        patcher.apply_patch(
-                            target_file,
-                            patch
-                        )
-
-                        validation_result = validator.validate_patch()
-
-                        print(
-                            "Validation Result:",
-                            validation_result
-                        )
-
-                        break
+if __name__ == "__main__":
+    raise SystemExit(main())

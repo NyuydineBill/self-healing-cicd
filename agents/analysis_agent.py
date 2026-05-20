@@ -1,10 +1,14 @@
 import re
+from typing import List, Optional
+
+from utils.logging import get_logger
+
+logger = get_logger("analysis_agent")
 
 
 class AnalysisAgent:
 
-    def extract_failure_context(self, log_text):
-
+    def extract_failure_context(self, log_text: str) -> List[str]:
         patterns = [
             r"AssertionError.*",
             r"FAILED.*",
@@ -13,29 +17,25 @@ class AnalysisAgent:
             r"ModuleNotFoundError.*",
             r"SyntaxError.*",
             r"No matching distribution found.*",
-            r"Error:.*"
+            r"Error:.*",
         ]
 
         extracted_errors = []
 
         for pattern in patterns:
-
-            matches = re.findall(
-                pattern,
-                log_text,
-                re.IGNORECASE
-            )
-
+            matches = re.findall(pattern, log_text, re.IGNORECASE)
             if matches:
                 extracted_errors.extend(matches)
 
-        return extracted_errors
-    
-    def extract_failed_file(self, log_text):
+        if extracted_errors:
+            logger.debug("Extracted %d error line(s) from log", len(extracted_errors))
 
+        return extracted_errors
+
+    def extract_failed_file(self, log_text: str) -> Optional[str]:
         match = re.search(
             r'File ".*?(sample_projects/.*?\.py)"',
-            log_text
+            log_text,
         )
 
         if match:
