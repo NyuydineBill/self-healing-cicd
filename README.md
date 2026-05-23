@@ -294,7 +294,7 @@ The framework supports three usage modes. Pick one based on how much automation 
 | 3 | Run Mode 3 once on GitHub with `OPENAI_API_KEY` secret and a deliberate test failure |
 | 4 | State limitations honestly (see below) — reviewers expect this |
 
-The `sample_projects/` targets are **intentionally broken** demos. For a “completed” story, either fix one sample via the orchestrator or point the framework at a repo where your own CI failed.
+Ten demos live under `sample_projects/` (assertion, import, syntax, logic, module, attribute, name, index, type, zero-division). By default they **pass**; break one with `./scripts/break-sample.sh N` before pushing to test self-heal. See [sample_projects/README.md](sample_projects/README.md).
 
 ---
 
@@ -325,6 +325,8 @@ When `GIT_ENABLED=true` and a repair validates successfully:
 4. Opens a PR (if `GIT_CREATE_PR=true`)
 
 Requires a git repository with `GITHUB_TOKEN` push permission.
+
+**DCO (Developer Certificate of Origin):** If your repo enforces DCO on PRs, keep `GIT_SIGN_OFF=true` (default). Self-heal commits include `Signed-off-by: …` in the message. For an existing PR that failed DCO, use **Set DCO to pass** on GitHub or close it and let the next self-heal run open a new PR after you merge this fix.
 
 ## CI integration
 

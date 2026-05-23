@@ -65,6 +65,32 @@ class GitRepairManager:
         )
         return branch
 
+    def _commit_message(
+        self,
+        *,
+        target_file: str,
+        run_id: int | str,
+        failure_type: str,
+        attempt: int,
+    ) -> str:
+        """Build commit message; include DCO Signed-off-by when enabled."""
+        lines = [
+            f"fix(self-heal): repair {target_file}",
+            "",
+            f"Run: {run_id}",
+            f"Failure type: {failure_type}",
+            f"Attempt: {attempt}",
+        ]
+        if self.settings.git_sign_off:
+            lines.extend(
+                [
+                    "",
+                    f"Signed-off-by: {self.settings.git_author_name} "
+                    f"<{self.settings.git_author_email}>",
+                ]
+            )
+        return "\n".join(lines)
+
     def commit_repair(
         self,
         *,
@@ -78,11 +104,11 @@ class GitRepairManager:
         repo = self.repo
 
         repo.git.add(target_file)
-        message = (
-            f"fix(self-heal): repair {target_file}\n\n"
-            f"Run: {run_id}\n"
-            f"Failure type: {failure_type}\n"
-            f"Attempt: {attempt}\n"
+        message = self._commit_message(
+            target_file=target_file,
+            run_id=run_id,
+            failure_type=failure_type,
+            attempt=attempt,
         )
 
         if not repo.index.diff("HEAD") and not repo.untracked_files:

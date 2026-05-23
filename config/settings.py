@@ -160,6 +160,9 @@ class Settings:
             "GIT_AUTHOR_EMAIL", "self-healing-bot@users.noreply.github.com"
         )
     )
+    git_sign_off: bool = field(
+        default_factory=lambda: os.getenv("GIT_SIGN_OFF", "true").lower() == "true"
+    )
 
     # Logging
     log_level: str = field(default_factory=lambda: os.getenv("LOG_LEVEL", "INFO"))
