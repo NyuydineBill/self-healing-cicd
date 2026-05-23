@@ -5,6 +5,19 @@ on:
     workflows: ["Test Pipeline"]
     types: [completed]
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Diagnose and generate patches only (no file writes, no Docker)"
+        type: boolean
+        default: true
+      offline_mode:
+        description: "Use cached logs under logs/extracted/ (no GitHub API)"
+        type: boolean
+        default: false
+      git_enabled:
+        description: "Commit repairs and open PR after success"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -35,13 +48,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Resolve run mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+            echo "offline=${{ github.event.inputs.offline_mode }}" >> $GITHUB_OUTPUT
+            echo "git_enabled=${{ github.event.inputs.git_enabled }}" >> $GITHUB_OUTPUT
+          else
+            echo "dry_run=false" >> $GITHUB_OUTPUT
+            echo "offline=false" >> $GITHUB_OUTPUT
+            echo "git_enabled=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Pre-flight check
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_OWNER: ${{ github.repository_owner }}
           GITHUB_REPO: ${{ github.event.repository.name }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GIT_ENABLED: "true"
+          DRY_RUN: ${{ steps.mode.outputs.dry_run }}
+          OFFLINE_MODE: ${{ steps.mode.outputs.offline }}
+          GIT_ENABLED: ${{ steps.mode.outputs.git_enabled }}
           AUTO_APPROVE_PATCHES: "true"
           REQUIRE_APPROVAL: "false"
         run: python main.py check
@@ -52,11 +80,13 @@ jobs:
           GITHUB_OWNER: ${{ github.repository_owner }}
           GITHUB_REPO: ${{ github.event.repository.name }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GIT_ENABLED: "true"
-          GIT_CREATE_PR: "true"
-          GIT_BASE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          GITHUB_PR_TOKEN: ${{ secrets.GITHUB_PR_TOKEN != '' && secrets.GITHUB_PR_TOKEN || github.token }}
+          DRY_RUN: ${{ steps.mode.outputs.dry_run }}
+          OFFLINE_MODE: ${{ steps.mode.outputs.offline }}
+          GIT_ENABLED: ${{ steps.mode.outputs.git_enabled }}
+          GIT_CREATE_PR: ${{ steps.mode.outputs.git_enabled }}
+          GIT_BASE_BRANCH: ${{ github.event.workflow_run.head_branch || 'main' }}
           AUTO_APPROVE_PATCHES: "true"
           REQUIRE_APPROVAL: "false"
-          DRY_RUN: "false"
           EXCLUDED_WORKFLOW_NAMES: "Self-Heal on Failure,self-heal"
         run: python main.py

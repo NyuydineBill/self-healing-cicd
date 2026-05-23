@@ -20,13 +20,32 @@ class PatchAgent:
         self.settings = settings
 
     def _load_related_source(self, target_file: str) -> str:
-        """Load related app.py for sample projects when present."""
+        """Load related source module for context (sample_projects, app/, src/)."""
         path = Path(target_file)
+        root = self.settings.project_root
+
         for part in path.parts:
             if part.startswith("project_"):
-                app_path = self.settings.project_root / "sample_projects" / part / "app.py"
+                app_path = root / "sample_projects" / part / "app.py"
                 if app_path.is_file():
                     return app_path.read_text(encoding="utf-8")
+
+        if "tests" in path.parts:
+            pkg_parts = list(path.parts[: path.parts.index("tests")])
+            for name in ("calculator.py", "app.py", "module.py", "main.py"):
+                candidate = root.joinpath(*pkg_parts) / name
+                if candidate.is_file():
+                    return candidate.read_text(encoding="utf-8")
+
+        parent = path.parent
+        for name in ("calculator.py", "app.py", path.stem.replace("test_", "") + ".py"):
+            candidate = parent / name
+            if candidate.is_file():
+                return candidate.read_text(encoding="utf-8")
+            candidate = parent.parent / name
+            if candidate.is_file():
+                return candidate.read_text(encoding="utf-8")
+
         return ""
 
     def generate_patch(

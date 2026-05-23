@@ -28,15 +28,12 @@ def request_patch_approval(
     target_file: str,
     original_content: str,
     patch_content: str,
+    run_id: str | int = "",
 ) -> bool:
     """
     Decide whether to apply a generated patch.
 
-    - AUTO_APPROVE_PATCHES=true → approve (CI default)
-    - REQUIRE_APPROVAL=false → approve
-    - DRY_RUN → never applies (caller should skip)
-    - Interactive TTY → show diff and prompt y/N
-    - Non-interactive without auto-approve → reject
+    Priority: auto-approve → web UI → terminal prompt → reject (non-interactive).
     """
     settings = get_settings()
 
@@ -47,10 +44,22 @@ def request_patch_approval(
     if not settings.require_approval:
         return True
 
+    if settings.web_approval_enabled:
+        from utils.approval_web import ApprovalWebServer
+
+        logger.info("Waiting for web approval at http://127.0.0.1:%d", settings.web_approval_port)
+        return ApprovalWebServer().wait_for_decision(
+            target_file=target_file,
+            original_content=original_content,
+            patch_content=patch_content,
+            run_id=run_id,
+        )
+
     if not sys.stdin.isatty():
         logger.warning(
             "Patch approval required but stdin is not interactive. "
-            "Set AUTO_APPROVE_PATCHES=true for CI or REQUIRE_APPROVAL=false."
+            "Enable WEB_APPROVAL_ENABLED=true, AUTO_APPROVE_PATCHES=true, "
+            "or REQUIRE_APPROVAL=false."
         )
         return False
 
@@ -58,7 +67,10 @@ def request_patch_approval(
     max_lines = settings.approval_diff_max_lines
     diff_lines = diff.splitlines()
     if len(diff_lines) > max_lines:
-        diff_display = "\n".join(diff_lines[:max_lines]) + f"\n... [{len(diff_lines) - max_lines} more lines]"
+        diff_display = (
+            "\n".join(diff_lines[:max_lines])
+            + f"\n... [{len(diff_lines) - max_lines} more lines]"
+        )
     else:
         diff_display = diff
 

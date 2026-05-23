@@ -28,6 +28,7 @@ def test_non_interactive_denies(mock_stdin, mock_settings):
     settings = mock_settings.return_value
     settings.auto_approve_patches = False
     settings.require_approval = True
+    settings.web_approval_enabled = False
     mock_stdin.isatty.return_value = False
 
     assert request_patch_approval("f.py", "a", "b") is False

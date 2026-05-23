@@ -17,6 +17,10 @@ class Settings:
 
     # GitHub
     github_token: str = field(default_factory=lambda: os.getenv("GITHUB_TOKEN", ""))
+    github_pr_token: str = field(
+        default_factory=lambda: os.getenv("GITHUB_PR_TOKEN")
+        or os.getenv("GITHUB_TOKEN", "")
+    )
     github_owner: str = field(default_factory=lambda: os.getenv("GITHUB_OWNER", ""))
     github_repo: str = field(default_factory=lambda: os.getenv("GITHUB_REPO", ""))
 
@@ -89,9 +93,29 @@ class Settings:
     allowed_path_prefixes: tuple = field(
         default_factory=lambda: tuple(
             p.strip()
-            for p in os.getenv("ALLOWED_PATH_PREFIXES", "sample_projects/").split(",")
+            for p in os.getenv(
+                "ALLOWED_PATH_PREFIXES",
+                "sample_projects/,app/,src/,lib/,tests/",
+            ).split(",")
             if p.strip()
         )
+    )
+    log_parser_language: str = field(
+        default_factory=lambda: os.getenv("LOG_PARSER_LANGUAGE", "").strip().lower()
+    )
+    web_approval_enabled: bool = field(
+        default_factory=lambda: os.getenv("WEB_APPROVAL_ENABLED", "false").lower()
+        == "true"
+    )
+    web_approval_port: int = field(
+        default_factory=lambda: int(os.getenv("WEB_APPROVAL_PORT", "8765"))
+    )
+    web_approval_timeout: int = field(
+        default_factory=lambda: int(os.getenv("WEB_APPROVAL_TIMEOUT", "600"))
+    )
+    web_approval_open_browser: bool = field(
+        default_factory=lambda: os.getenv("WEB_APPROVAL_OPEN_BROWSER", "true").lower()
+        == "true"
     )
 
     # Offline / API

@@ -30,4 +30,4 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest tests/ sample_projects/ -v
+          pytest tests/ sample_projects/ app/ -v

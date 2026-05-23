@@ -8,7 +8,7 @@ from agents.patch_agent import PatchAgent
 from agents.reasoning_agent import ReasoningAgent
 from agents.validation_agent import ValidationAgent
 from config.settings import get_settings
-from utils.discovery import discover_sample_tests
+from utils.discovery import discover_all_test_targets
 from utils.docker_utils import cleanup_validation_containers
 from utils.errors import ErrorCategory, categorize_failure
 from utils.failure_memory import FailureMemory
@@ -113,7 +113,7 @@ class WorkflowOrchestrator:
         failed_runs = self.monitor.get_failed_runs()
         logger.info("Found %d failed workflow run(s)", len(failed_runs))
 
-        sample_test_paths = discover_sample_tests(self.settings.sample_projects_dir)
+        sample_test_paths = discover_all_test_targets()
         logger.info("Discovered %d sample test file(s)", len(sample_test_paths))
 
         if not failed_runs:
@@ -185,7 +185,7 @@ class WorkflowOrchestrator:
         """Process failures from cached logs under logs/extracted/ (no GitHub API)."""
         logger.info("OFFLINE_MODE: using cached logs only")
 
-        sample_test_paths = discover_sample_tests(self.settings.sample_projects_dir)
+        sample_test_paths = discover_all_test_targets()
         offline_runs = discover_offline_runs()[: self.settings.max_failed_runs]
 
         if not offline_runs:
@@ -445,7 +445,10 @@ class WorkflowOrchestrator:
                         original_content = f.read()
 
                     if not request_patch_approval(
-                        target_file, original_content, patch
+                        target_file,
+                        original_content,
+                        patch,
+                        run_id=run_id,
                     ):
                         validation = {
                             "status": "approval_denied",

@@ -7,9 +7,12 @@ def resolve_validation_scope(
     sample_projects_dir: str = "sample_projects",
 ) -> Optional[str]:
     """
-    Derive a scoped pytest path from a target file under sample_projects.
+    Derive a scoped pytest path from a target file.
 
-    Example: sample_projects/project_1/test_foo.py -> sample_projects/project_1
+    Examples:
+      sample_projects/project_1/test_foo.py -> sample_projects/project_1
+      app/tests/test_calc.py -> app
+      src/mypkg/test_x.py -> src/mypkg or src
     """
     path = Path(target_file)
     parts = path.parts
@@ -20,8 +23,18 @@ def resolve_validation_scope(
             if project.startswith("project_"):
                 return str(Path(sample_projects_dir) / project)
 
-    for part in parts:
-        if part.startswith("project_"):
-            return str(Path(sample_projects_dir) / part)
+    if "tests" in parts:
+        idx = parts.index("tests")
+        if idx > 0:
+            return str(Path(*parts[:idx]))
+
+    for prefix in ("app", "src", "lib"):
+        if prefix in parts:
+            idx = parts.index(prefix)
+            return str(Path(*parts[: idx + 1]))
+
+    parent = path.parent
+    if parent.parts:
+        return str(parent)
 
     return None

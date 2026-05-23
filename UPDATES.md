@@ -17,7 +17,54 @@ All five original agents (`MonitoringAgent`, `AnalysisAgent`, `ReasoningAgent`, 
 
 ---
 
-## Update: Git commit fix (latest)
+## Update: Documentation sync (latest)
+
+Aligned `README.md` and this changelog with the current tree:
+
+- **Project layout** — Documents real paths (`config/prompts/`, `.github/workflows/`, runtime `logs/` / `results/`)
+- **Stale root dirs** — Notes that `prompts/`, `workflows/`, `sandbox/` at repo root are unused leftovers
+- **Adoption** — Reference-repo model today; pip package + GitHub Action listed as planned
+- **Limitations** — Removed Java/Go parsers and web UI from “remaining gaps”; added distribution and multi-CI gaps
+- **Test count** — **45** unit tests in `tests/` (`pytest tests/`)
+
+---
+
+## Update: Enterprise extensions
+
+### Pluggable log parsers (`parsers/`)
+
+| Parser | Detects |
+|--------|---------|
+| `python` | pytest, AssertionError, sample_projects/, app/, src/ |
+| `java` | Maven/Gradle `[ERROR]`, `.java` paths |
+| `go` | `--- FAIL:`, panic, `.go` paths |
+
+`AnalysisAgent` delegates to `get_parser(log_text)`. Override: `LOG_PARSER_LANGUAGE=java`.
+
+### Broader path policy + real app code
+
+- Default `ALLOWED_PATH_PREFIXES=sample_projects/,app/,src/,lib/,tests/`
+- New `app/calculator.py` + `app/tests/test_calculator.py`
+- `discover_all_test_targets()` for orchestrator fallbacks
+- Scoped validation for `app/`, `src/`, etc.
+
+### Web UI approval (`utils/approval_web.py`)
+
+- `WEB_APPROVAL_ENABLED=true` — browser UI at `http://127.0.0.1:8765`
+- Approve / Reject links; writes `results/pending_approval.json`
+- `python main.py approve-ui` — standalone server
+
+### workflow_dispatch dry-run
+
+**Self-Heal on Failure → Run workflow** with inputs:
+
+- `dry_run` (default **true**) — safe test without breaking CI
+- `offline_mode` — cached logs only
+- `git_enabled` — false for dry-run trials
+
+---
+
+## Update: Git commit fix
 
 - **`utils/git_repair.py`**: use `git.Actor(name, email)` for commits (fixes `AttributeError: 'str' object has no attribute 'name'` in GitHub Actions).
 - Repair can succeed in validation but no longer crashes on commit; git errors are logged and returned in `git_info`.
@@ -49,9 +96,9 @@ Production-grade features for real deployment beyond thesis demo.
 
 `REQUIRE_APPROVAL`, `AUTO_APPROVE_PATCHES`, `APPROVAL_DIFF_MAX_LINES`, `ALLOWED_PATH_PREFIXES`, `OFFLINE_MODE`, `GITHUB_API_MAX_RETRIES`, `EXCLUDED_WORKFLOW_NAMES`
 
-### New tests (34 total)
+### New tests (45 total as of documentation sync)
 
-`test_policy.py`, `test_approval.py`, `test_offline_logs.py`
+Includes `test_policy.py`, `test_approval.py`, `test_offline_logs.py`, `test_parsers.py`, `test_git_repair.py`, `test_validation_scope.py`, and others under `tests/`. Run: `pytest tests/ -q`
 
 ### Product usage summary
 
@@ -290,37 +337,33 @@ python main.py
 
 ## New Directory Structure
 
+Current layout (see `README.md` § Project layout for adoption notes):
+
 ```
 self-healing-cicd/
+├── main.py
+├── agents/                  # Monitoring, Analysis, Reasoning, Patch, Validation
 ├── orchestrator/
-│   ├── __init__.py
-│   └── workflow.py          # WorkflowOrchestrator, WorkflowResult, RepairAttempt
-├── utils/
-│   ├── __init__.py
-│   ├── logging.py           # Structured logging setup
-│   ├── errors.py            # ErrorCategory enum + categorize_failure()
-│   ├── prompts.py           # load_prompt() from template files
-│   ├── failure_memory.py    # JSON persistent repair history
-│   ├── discovery.py         # discover_sample_tests() (moved from main.py)
-│   ├── log_extractor.py       # ZIP save/extract + log file iteration
-│   ├── docker_utils.py      # Container/image cleanup after validation
-│   ├── file_backup.py       # Backup/restore before and after patches
-│   ├── llm_client.py        # OpenAI retry + timeout wrapper
-│   ├── validation_scope.py  # Scoped pytest path from target file
-│   └── results_store.py     # Per-run and metrics JSON persistence
+│   └── workflow.py          # WorkflowOrchestrator, batch + retry
 ├── config/
-│   ├── __init__.py
-│   ├── settings.py          # Settings dataclass + get_settings()
-│   ├── validation.py        # Startup config validation
-│   └── prompts/
-│       ├── diagnosis.txt    # LLM diagnosis template
-│       └── patch.txt        # LLM patch generation template
-├── results/
-│   └── .gitkeep             # Runtime JSON written here (gitignored)
-├── agents/
-│   └── __init__.py          # NEW — package exports
-└── UPDATES.md               # This file
+│   ├── settings.py
+│   ├── validation.py
+│   ├── check.py
+│   └── prompts/             # diagnosis.txt, patch.txt
+├── parsers/                 # python, java, go log parsers
+├── utils/                   # logging, git_repair, approval, offline_logs, …
+├── tests/                   # 45 unit tests
+├── app/                     # Example app (calculator + tests)
+├── sample_projects/         # Demo failure targets
+├── .github/workflows/       # test.yml, self-heal.yml
+├── scripts/
+├── logs/                    # Runtime (gitignored)
+├── results/                 # Runtime JSON + backups; .gitkeep in git
+├── Dockerfile
+└── UPDATES.md
 ```
+
+Do **not** use empty root `prompts/`, `workflows/`, or `sandbox/` — those are unused scaffold folders.
 
 ---
 

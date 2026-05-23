@@ -41,7 +41,14 @@ cp .env.example .env
 python main.py check
 ```
 
-Add repository secret **`OPENAI_API_KEY`** on GitHub (Settings → Secrets → Actions).
+Add repository secrets on GitHub (Settings → Secrets → Actions):
+
+| Secret | Required |
+|--------|----------|
+| `OPENAI_API_KEY` | Yes |
+| `GITHUB_PR_TOKEN` | No — use a PAT with `repo` scope if PR creation returns 403 |
+
+Also enable: **Settings → Actions → General → Workflow permissions** → check **Allow GitHub Actions to create and approve pull requests** (required for auto-PR with `GITHUB_TOKEN`).
 
 ### 2. Local operator (human approves each patch)
 
@@ -77,10 +84,45 @@ OFFLINE_MODE=true python main.py
 
 ### 5. Path policy
 
-Only files under `ALLOWED_PATH_PREFIXES` (default `sample_projects/`) can be patched. Extend for your monorepo:
+Only files under `ALLOWED_PATH_PREFIXES` can be patched. Default:
 
 ```bash
-ALLOWED_PATH_PREFIXES=sample_projects/,src/tests/
+ALLOWED_PATH_PREFIXES=sample_projects/,app/,src/,lib/,tests/
+```
+
+Example real app code lives under `app/` (`app/calculator.py`, `app/tests/`).
+
+### 6. Manual dry-run on GitHub (no CI failure needed)
+
+**Actions → Self-Heal on Failure → Run workflow**
+
+| Input | Recommended for test |
+|-------|-------------------|
+| `dry_run` | **true** (default) |
+| `offline_mode` | false |
+| `git_enabled` | false |
+
+Uses OpenAI + GitHub API but does not write files or run Docker.
+
+### 7. Web UI patch approval (local)
+
+```bash
+WEB_APPROVAL_ENABLED=true
+REQUIRE_APPROVAL=true
+AUTO_APPROVE_PATCHES=false
+python main.py
+# Browser opens http://127.0.0.1:8765 — Approve or Reject
+
+# Or run UI only:
+python main.py approve-ui
+```
+
+### 8. Multi-language log parsers
+
+Auto-detects Python, Java (Maven/Gradle), and Go from CI logs. Force one:
+
+```bash
+LOG_PARSER_LANGUAGE=java   # python | java | go
 ```
 
 ### CLI commands
@@ -108,7 +150,7 @@ flowchart TB
 
     subgraph agents [Agents]
         MON[MonitoringAgent<br/>GitHub Actions API]
-        ANA[AnalysisAgent<br/>log regex]
+        ANA[AnalysisAgent<br/>parsers/]
         REA[ReasoningAgent<br/>LLM diagnosis]
         PAT[PatchAgent<br/>LLM patch]
         VAL[ValidationAgent<br/>Docker pytest]
@@ -150,11 +192,51 @@ flowchart TB
 |---------|------|
 | `orchestrator/` | Agent coordination, retries, batch results |
 | `agents/` | Monitoring, analysis, reasoning, patch, validation |
-| `config/` | Settings, prompt templates, startup checks |
+| `config/` | Settings, prompt templates (`config/prompts/`), startup checks |
+| `parsers/` | Pluggable log parsers (Python, Java, Go) |
 | `utils/` | Logging, backups, git, secrets masking, LLM retries |
-| `results/` | JSON metrics and repair history |
+| `tests/` | Framework unit tests (`pytest tests/` — 45 tests) |
+| `results/` | Runtime JSON metrics and repair history (gitignored) |
+| `logs/` | Downloaded workflow ZIPs and extracted logs (gitignored) |
 
 See [UPDATES.md](UPDATES.md) for the full changelog.
+
+### Project layout
+
+```
+self-healing-cicd/
+├── main.py                 # CLI entry (run, check, approve-ui)
+├── agents/                 # Five agents (monitoring → validation)
+├── orchestrator/           # WorkflowOrchestrator + retry loop
+├── config/
+│   ├── settings.py
+│   ├── validation.py
+│   └── prompts/            # diagnosis.txt, patch.txt (not root prompts/)
+├── parsers/                # python_parser, java_parser, go_parser
+├── utils/                  # git, approval, offline logs, Docker, etc.
+├── tests/                  # Unit tests (45)
+├── app/                    # Example application under repair
+├── sample_projects/        # Intentionally failing demo targets
+├── .github/workflows/      # test.yml, self-heal.yml (not root workflows/)
+├── logs/                   # Runtime — created on first log fetch
+├── results/                # Runtime — JSON + backups (results/.gitkeep only in git)
+├── scripts/                # go-live.sh, trigger-ci-failure.sh
+└── Dockerfile              # Validation image for ValidationAgent
+```
+
+**Runtime directories** (`logs/`, `results/`) start empty except `results/.gitkeep`. The framework creates JSON, backups, and extracted logs during runs. Those artifacts are gitignored.
+
+**Not used:** Empty root folders named `prompts/`, `workflows/`, or `sandbox/` are leftovers from an early scaffold. Prompts live under `config/prompts/`; CI workflows live under `.github/workflows/`. Safe to delete locally.
+
+### Adoption (today vs planned)
+
+| Model | Status | What adopters do |
+|-------|--------|------------------|
+| **Reference repo (today)** | Current | Clone this repo (or copy framework tree), configure `.env`, add secrets, run locally or via included workflows |
+| **pip package** | Planned | `pip install self-healing-cicd` + `self-heal run` without vendoring source |
+| **GitHub Action** | Planned | `uses: org/self-healing-cicd@v1` + `OPENAI_API_KEY` only |
+
+For a thesis or demo, the reference-repo model is enough. For product adoption, the target is install-or-Action, not copying `agents/` and `orchestrator/` into every consumer repo.
 
 ---
 
@@ -266,7 +348,7 @@ This section summarizes what the framework **does not** guarantee. Useful for th
 
 ### Scope and correctness
 
-- **Sample-first design** — Target resolution assumes failures under `sample_projects/` and pytest-style logs. Arbitrary repos may need custom regex and discovery rules.
+- **Python-centric validation** — Log parsers cover Python, Java, and Go, but Docker validation still runs `pytest`. JVM/Go repos may need custom validation beyond this framework.
 - **LLM unpredictability** — Patches can be wrong, incomplete, or stylistically odd even when validation passes (tests may not cover the real failure).
 - **Single-repo, single-provider** — GitHub Actions only; no GitLab, Jenkins, or CircleCI.
 - **No semantic code understanding** — Repairs are text-based (LLM + file replace), not AST-aware refactors.
@@ -300,10 +382,17 @@ This section summarizes what the framework **does not** guarantee. Useful for th
 
 ### Remaining gaps for enterprise adoption
 
-- Pluggable log parsers per stack (Java, Go, etc.)  
-- Staging integration tests against live GitHub/Docker  
-- Auto-merge policy (optional, behind flag)  
-- Web UI for approval instead of terminal prompt  
+- **Distribution** — No published pip package or marketplace GitHub Action yet; adopters vendor this repo today (see [Adoption](#adoption-today-vs-planned))  
+- **Validation stack** — Docker + `pytest` only; Java/Go parsers help find targets but validation is still Python-centric  
+- **Staging / E2E** — No automated integration suite against live GitHub + Docker in CI  
+- **Auto-merge** — PRs are opened for human review; no optional auto-merge policy  
+- **Multi-CI** — GitHub Actions only (no GitLab, Jenkins, CircleCI)  
+
+### Already implemented (not gaps)
+
+- Pluggable log parsers: `parsers/` (Python, Java, Go) — `LOG_PARSER_LANGUAGE` to force  
+- Web approval UI: `WEB_APPROVAL_ENABLED`, `python main.py approve-ui`  
+- Terminal approval, path allowlist, offline mode, git branch + PR, pre-flight `check`  
 
 ---
 

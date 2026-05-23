@@ -2,9 +2,10 @@
 Entry point for the self-healing CI/CD framework.
 
 Usage:
-  python main.py          Run the orchestrator
-  python main.py check    Pre-flight health check
-  python -m config.check  Same as check
+  python main.py              Run the orchestrator
+  python main.py check        Pre-flight health check
+  python main.py approve-ui   Start web approval UI only
+  python -m config.check      Same as check
 """
 
 import sys
@@ -31,7 +32,12 @@ def run_orchestrator() -> int:
         logger.info("Running in DRY_RUN mode")
     if settings.offline_mode:
         logger.info("Running in OFFLINE_MODE (cached logs only)")
-    if settings.require_approval and not settings.auto_approve_patches:
+    if settings.web_approval_enabled:
+        logger.info(
+            "Web approval enabled: http://127.0.0.1:%d",
+            settings.web_approval_port,
+        )
+    elif settings.require_approval and not settings.auto_approve_patches:
         logger.info("Patch approval required before apply (REQUIRE_APPROVAL=true)")
 
     batch = WorkflowOrchestrator().run()
@@ -75,6 +81,13 @@ def main(argv: list[str] | None = None) -> int:
         from config.check import run_health_check
 
         return run_health_check()
+
+    if argv and argv[0] in ("approve-ui", "approve-ui-server"):
+        from utils.approval_web import run_standalone_server
+
+        port = int(argv[1]) if len(argv) > 1 else None
+        run_standalone_server(port=port)
+        return 0
 
     if argv and argv[0] in ("run", "--run"):
         argv = argv[1:]

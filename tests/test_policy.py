@@ -8,7 +8,8 @@ def test_allowed_sample_project_path():
 
 
 def test_rejects_outside_prefix():
-    assert not is_path_allowed("src/main.py")
+    assert not is_path_allowed("etc/passwd")
+    assert not is_path_allowed("random/outside/module.py")
 
 
 def test_enforce_raises():

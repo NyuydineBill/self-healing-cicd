@@ -15,5 +15,11 @@ def test_resolve_scope_from_nested_path():
     assert scope == "sample_projects/project_3"
 
 
-def test_resolve_scope_returns_none_for_unrelated_file():
-    assert resolve_validation_scope("src/main.py") is None
+def test_resolve_scope_for_app_tests():
+    scope = resolve_validation_scope("app/tests/test_calculator.py")
+    assert scope == "app"
+
+
+def test_resolve_scope_for_src_tree():
+    scope = resolve_validation_scope("src/mypkg/test_foo.py")
+    assert scope == "src/mypkg" or scope == "src"
