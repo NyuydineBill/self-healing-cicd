@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from config.settings import get_settings
 from utils.http_retry import request_with_retry
@@ -9,7 +9,7 @@ logger = get_logger("monitoring_agent")
 
 
 class MonitoringAgent:
-    def __init__(self, settings=None):
+    def __init__(self, settings: Any = None) -> None:
         self.settings = settings or get_settings()
         self.github_token = self.settings.github_token
         self.repo_owner = self.settings.github_owner
@@ -19,9 +19,7 @@ class MonitoringAgent:
             "Authorization": f"Bearer {self.github_token}",
             "Accept": "application/vnd.github+json",
         }
-        self._excluded_names = {
-            n.lower() for n in self.settings.excluded_workflow_names
-        }
+        self._excluded_names = {n.lower() for n in self.settings.excluded_workflow_names}
 
     def _is_excluded_workflow(self, workflow_name: str) -> bool:
         name_lower = workflow_name.lower()
@@ -30,11 +28,8 @@ class MonitoringAgent:
                 return True
         return False
 
-    def get_failed_runs(self) -> List[Dict[str, Any]]:
-        url = (
-            f"https://api.github.com/repos/{self.repo_owner}/"
-            f"{self.repo_name}/actions/runs"
-        )
+    def get_failed_runs(self) -> list[dict[str, Any]]:
+        url = f"https://api.github.com/repos/{self.repo_owner}/" f"{self.repo_name}/actions/runs"
 
         response = request_with_retry(
             "GET",
@@ -62,18 +57,20 @@ class MonitoringAgent:
                 continue
 
             if run["conclusion"] == "failure":
-                failed_runs.append({
-                    "run_id": run["id"],
-                    "name": name,
-                    "status": run["status"],
-                    "conclusion": run["conclusion"],
-                    "created_at": run["created_at"],
-                })
+                failed_runs.append(
+                    {
+                        "run_id": run["id"],
+                        "name": name,
+                        "status": run["status"],
+                        "conclusion": run["conclusion"],
+                        "created_at": run["created_at"],
+                    }
+                )
 
         logger.info("Retrieved %d failed run(s)", len(failed_runs))
         return failed_runs
 
-    def get_workflow_logs(self, run_id: int | str) -> Optional[bytes]:
+    def get_workflow_logs(self, run_id: int | str) -> bytes | None:
         url = (
             f"https://api.github.com/repos/{self.repo_owner}/"
             f"{self.repo_name}/actions/runs/{run_id}/logs"

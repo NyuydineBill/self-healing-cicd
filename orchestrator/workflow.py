@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 from agents.analysis_agent import AnalysisAgent
 from agents.monitoring_agent import MonitoringAgent
@@ -8,15 +8,21 @@ from agents.patch_agent import PatchAgent
 from agents.reasoning_agent import ReasoningAgent
 from agents.validation_agent import ValidationAgent
 from config.settings import get_settings
+from utils.approval import request_patch_approval
+from utils.audit_log import (
+    record_patch_applied,
+    record_patch_rejected,
+    record_pr_opened,
+    record_run_outcome,
+)
 from utils.discovery import discover_all_test_targets
 from utils.docker_utils import cleanup_validation_containers
 from utils.errors import ErrorCategory, categorize_failure
 from utils.failure_memory import FailureMemory
 from utils.file_backup import FileBackupManager
-from utils.approval import request_patch_approval
 from utils.git_repair import GitRepairError, GitRepairManager
 from utils.log_extractor import iter_log_files, save_and_extract_logs
-from utils.logging import get_logger
+from utils.logging import get_logger, set_run_id
 from utils.offline_logs import discover_offline_runs, iter_offline_logs
 from utils.policy import PolicyViolation, enforce_path_policy
 from utils.results_store import ResultsStore
@@ -32,20 +38,20 @@ class RepairAttempt:
     failure_type: str
     diagnosis: str
     patch: str
-    validation: Dict[str, Any]
+    validation: dict[str, Any]
     success: bool
 
 
 @dataclass
 class WorkflowResult:
-    run_id: Optional[int] = None
+    run_id: int | str | None = None
     status: str = "no_action"
     message: str = ""
-    failure_type: Optional[str] = None
-    target_file: Optional[str] = None
-    attempts: List[RepairAttempt] = field(default_factory=list)
+    failure_type: str | None = None
+    target_file: str | None = None
+    attempts: list[RepairAttempt] = field(default_factory=list)
     repair_success: bool = False
-    git_info: Optional[Dict[str, Any]] = None
+    git_info: dict[str, Any] | None = None
 
 
 @dataclass
@@ -54,7 +60,7 @@ class BatchWorkflowResult:
 
     status: str = "no_action"
     message: str = ""
-    results: List[WorkflowResult] = field(default_factory=list)
+    results: list[WorkflowResult] = field(default_factory=list)
 
     @property
     def repair_success(self) -> bool:
@@ -73,13 +79,13 @@ class WorkflowOrchestrator:
 
     def __init__(
         self,
-        monitor: Optional[MonitoringAgent] = None,
-        analyzer: Optional[AnalysisAgent] = None,
-        reasoner: Optional[ReasoningAgent] = None,
-        patcher: Optional[PatchAgent] = None,
-        validator: Optional[ValidationAgent] = None,
-        failure_memory: Optional[FailureMemory] = None,
-        results_store: Optional[ResultsStore] = None,
+        monitor: MonitoringAgent | None = None,
+        analyzer: AnalysisAgent | None = None,
+        reasoner: ReasoningAgent | None = None,
+        patcher: PatchAgent | None = None,
+        validator: ValidationAgent | None = None,
+        failure_memory: FailureMemory | None = None,
+        results_store: ResultsStore | None = None,
     ):
         self.settings = get_settings()
         self.monitor = monitor or MonitoringAgent()
@@ -90,7 +96,7 @@ class WorkflowOrchestrator:
         self.failure_memory = failure_memory or FailureMemory()
         self.results_store = results_store or ResultsStore()
         self.backup_manager = FileBackupManager()
-        self.git_manager: Optional[GitRepairManager] = None
+        self.git_manager: GitRepairManager | None = None
         if self.settings.git_enabled and not self.settings.dry_run:
             try:
                 self.git_manager = GitRepairManager()
@@ -124,7 +130,7 @@ class WorkflowOrchestrator:
             self._persist_batch(batch)
             return batch
 
-        all_results: List[WorkflowResult] = []
+        all_results: list[WorkflowResult] = []
         runs_to_process = failed_runs[: self.settings.max_failed_runs]
 
         for run in runs_to_process:
@@ -142,16 +148,11 @@ class WorkflowOrchestrator:
             self._finalize_git_for_run(run_id, run_results)
             all_results.extend(run_results)
 
-            if (
-                self.settings.stop_on_first_success
-                and any(r.repair_success for r in run_results)
-            ):
+            if self.settings.stop_on_first_success and any(r.repair_success for r in run_results):
                 logger.info("Stopping: repair succeeded for run %s", run_id)
                 break
 
-            if self.dry_run and any(
-                r.status == "dry_run_complete" for r in run_results
-            ):
+            if self.dry_run and any(r.status == "dry_run_complete" for r in run_results):
                 break
 
         if not all_results:
@@ -196,7 +197,7 @@ class WorkflowOrchestrator:
             self._persist_batch(batch)
             return batch
 
-        all_results: List[WorkflowResult] = []
+        all_results: list[WorkflowResult] = []
         for run_id, extract_dir in offline_runs:
             logger.info("Processing offline run: %s", run_id)
             run_results = self._process_offline_run(
@@ -206,10 +207,7 @@ class WorkflowOrchestrator:
             )
             all_results.extend(run_results)
 
-            if (
-                self.settings.stop_on_first_success
-                and any(r.repair_success for r in run_results)
-            ):
+            if self.settings.stop_on_first_success and any(r.repair_success for r in run_results):
                 break
 
         batch = BatchWorkflowResult(
@@ -224,14 +222,15 @@ class WorkflowOrchestrator:
         self,
         *,
         run_id: str,
-        extract_dir,
-        sample_test_paths: List[str],
-    ) -> List[WorkflowResult]:
-        results: List[WorkflowResult] = []
-        processed_targets: Set[Tuple[str, str]] = set()
+        extract_dir: Any,
+        sample_test_paths: list[str],
+    ) -> list[WorkflowResult]:
+        set_run_id(run_id)
+        results: list[WorkflowResult] = []
+        processed_targets: set[tuple[str, str]] = set()
         failures_handled = 0
 
-        for log_path, log_text in iter_offline_logs(run_id, extract_dir):
+        for _log_path, log_text in iter_offline_logs(run_id, extract_dir):
             if failures_handled >= self.settings.max_failures_per_run:
                 break
 
@@ -281,11 +280,12 @@ class WorkflowOrchestrator:
         self,
         *,
         run_id: int | str,
-        sample_test_paths: List[str],
-    ) -> List[WorkflowResult]:
+        sample_test_paths: list[str],
+    ) -> list[WorkflowResult]:
         """Process all failures found in a single workflow run's logs."""
-        results: List[WorkflowResult] = []
-        processed_targets: Set[Tuple[str, str]] = set()
+        set_run_id(run_id)
+        results: list[WorkflowResult] = []
+        processed_targets: set[tuple[str, str]] = set()
 
         logs = self.monitor.get_workflow_logs(run_id)
         if not logs:
@@ -316,9 +316,7 @@ class WorkflowOrchestrator:
 
             target_file = self._resolve_target_file(log_text, sample_test_paths)
             if not target_file:
-                logger.warning(
-                    "Could not resolve target file from log: %s", log_path
-                )
+                logger.warning("Could not resolve target file from log: %s", log_path)
                 continue
 
             try:
@@ -365,9 +363,7 @@ class WorkflowOrchestrator:
 
         return results
 
-    def _resolve_target_file(
-        self, log_text: str, sample_test_paths: List[str]
-    ) -> Optional[str]:
+    def _resolve_target_file(self, log_text: str, sample_test_paths: list[str]) -> str | None:
         target_file = self.analyzer.extract_failed_file(log_text)
 
         if not target_file:
@@ -385,12 +381,12 @@ class WorkflowOrchestrator:
         self,
         *,
         run_id: int | str,
-        errors: List[str],
+        errors: list[str],
         target_file: str,
         failure_type: str,
     ) -> WorkflowResult:
         failure_context = "\n".join(errors)
-        attempts: List[RepairAttempt] = []
+        attempts: list[RepairAttempt] = []
 
         if self.settings.backup_before_patch and not self.dry_run:
             self.backup_manager.backup_original(target_file, run_id)
@@ -424,9 +420,7 @@ class WorkflowOrchestrator:
 
                 logger.debug(
                     "Generated patch: %s",
-                    safe_patch_summary(
-                        patch, self.settings.log_patch_preview_chars
-                    ),
+                    safe_patch_summary(patch, self.settings.log_patch_preview_chars),
                 )
 
                 if self.dry_run:
@@ -441,7 +435,7 @@ class WorkflowOrchestrator:
                         "category": None,
                     }
                 else:
-                    with open(target_file, "r", encoding="utf-8") as f:
+                    with open(target_file, encoding="utf-8") as f:
                         original_content = f.read()
 
                     if not request_patch_approval(
@@ -455,15 +449,17 @@ class WorkflowOrchestrator:
                             "output": "Operator or policy denied patch application.",
                             "category": None,
                         }
+                        record_patch_rejected(
+                            run_id=run_id,
+                            target_file=target_file,
+                            reason="approval_denied",
+                            attempt=attempt,
+                        )
                     else:
                         if self.settings.backup_before_patch:
-                            self.backup_manager.backup_before_attempt(
-                                target_file, run_id, attempt
-                            )
+                            self.backup_manager.backup_before_attempt(target_file, run_id, attempt)
                         self.patcher.apply_patch(target_file, patch)
-                        validation = self.validator.validate_patch(
-                            target_file=target_file
-                        )
+                        validation = self.validator.validate_patch(target_file=target_file)
 
             except Exception as exc:
                 logger.error(
@@ -479,15 +475,9 @@ class WorkflowOrchestrator:
                 }
 
             success = validation.get("status") == "success"
-            dry_run_complete = (
-                self.dry_run and validation.get("status") == "dry_run"
-            )
+            dry_run_complete = self.dry_run and validation.get("status") == "dry_run"
 
-            if (
-                not success
-                and not self.dry_run
-                and self.settings.backup_before_patch
-            ):
+            if not success and not self.dry_run and self.settings.backup_before_patch:
                 self.backup_manager.restore_original(target_file, run_id)
 
             repair_attempt = RepairAttempt(
@@ -513,15 +503,12 @@ class WorkflowOrchestrator:
             )
 
             if dry_run_complete:
-                logger.info(
-                    "Dry-run complete on attempt %d (no files modified)", attempt
-                )
+                logger.info("Dry-run complete on attempt %d (no files modified)", attempt)
                 return WorkflowResult(
                     run_id=run_id,
                     status="dry_run_complete",
                     message=(
-                        "Dry-run finished: diagnosis and patch generated "
-                        "without applying."
+                        "Dry-run finished: diagnosis and patch generated " "without applying."
                     ),
                     failure_type=failure_type,
                     target_file=target_file,
@@ -531,6 +518,18 @@ class WorkflowOrchestrator:
 
             if success:
                 logger.info("Repair succeeded on attempt %d", attempt)
+                record_patch_applied(
+                    run_id=run_id,
+                    target_file=target_file,
+                    patch_summary=safe_patch_summary(patch),
+                    attempt=attempt,
+                )
+                record_run_outcome(
+                    run_id=run_id,
+                    success=True,
+                    total_attempts=attempt,
+                    target_file=target_file,
+                )
                 if self.settings.backup_before_patch:
                     self.backup_manager.clear_run_backups(target_file, run_id)
                 cleanup_validation_containers()
@@ -556,18 +555,26 @@ class WorkflowOrchestrator:
                 attempt,
                 validation.get("status"),
             )
-            failure_context = self._enrich_context_for_retry(
-                failure_context, validation
+            record_patch_rejected(
+                run_id=run_id,
+                target_file=target_file,
+                reason=f"validation_{validation.get('status', 'unknown')}",
+                attempt=attempt,
             )
+            failure_context = self._enrich_context_for_retry(failure_context, validation)
 
         if not self.dry_run:
             cleanup_validation_containers()
             if self.settings.backup_before_patch:
                 self.backup_manager.restore_original(target_file, run_id)
-                logger.info(
-                    "Restored original file after exhausted retries"
-                )
+                logger.info("Restored original file after exhausted retries")
 
+        record_run_outcome(
+            run_id=run_id,
+            success=False,
+            total_attempts=self.max_retries,
+            target_file=target_file,
+        )
         return WorkflowResult(
             run_id=run_id,
             status="repair_failed",
@@ -585,7 +592,7 @@ class WorkflowOrchestrator:
         target_file: str,
         failure_type: str,
         attempt: int,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         if not self.git_manager:
             return None
         try:
@@ -603,7 +610,7 @@ class WorkflowOrchestrator:
     def _finalize_git_for_run(
         self,
         run_id: int | str,
-        results: List[WorkflowResult],
+        results: list[WorkflowResult],
     ) -> None:
         if not self.git_manager:
             return
@@ -620,10 +627,15 @@ class WorkflowOrchestrator:
 
         if git_result.get("pr_url"):
             logger.info("Pull request: %s", git_result["pr_url"])
+            for result in repaired:
+                record_pr_opened(
+                    run_id=run_id,
+                    pr_url=git_result["pr_url"],
+                    branch=git_result.get("branch", ""),
+                    target_file=result.target_file or "",
+                )
 
-    def _enrich_context_for_retry(
-        self, failure_context: str, validation: Dict[str, Any]
-    ) -> str:
+    def _enrich_context_for_retry(self, failure_context: str, validation: dict[str, Any]) -> str:
         output = validation.get("output", "")
         status = validation.get("status", "unknown")
         scope = validation.get("scope", "unknown")
@@ -670,9 +682,7 @@ class WorkflowOrchestrator:
                 }
                 for a in result.attempts
             ],
-            "repair_history": self.failure_memory.get_repair_history(
-                result.run_id
-            ),
+            "repair_history": self.failure_memory.get_repair_history(result.run_id),
         }
 
         if result.run_id is not None:

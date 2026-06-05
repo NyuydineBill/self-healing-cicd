@@ -1,0 +1,111 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "self-healing-cicd"
+version = "0.1.0"
+description = "AI-powered self-healing CI/CD framework that automatically detects, diagnoses, and repairs failing workflows"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+authors = [{ name = "Nyuydine Bill" }]
+keywords = ["ci", "cd", "self-healing", "llm", "devops", "github-actions"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    "openai>=1.0.0",
+    "annotated-types==0.7.0",
+    "certifi==2026.4.22",
+    "charset-normalizer==3.4.7",
+    "gitdb==4.0.12",
+    "GitPython==3.1.50",
+    "idna==3.14",
+    "iniconfig==2.3.0",
+    "packaging==26.2",
+    "pluggy==1.6.0",
+    "pydantic==2.13.4",
+    "pydantic_core==2.46.4",
+    "Pygments==2.20.0",
+    "pytest==9.0.3",
+    "python-dotenv==1.2.2",
+    "requests==2.33.1",
+    "smmap==5.0.3",
+    "typing-inspection==0.4.2",
+    "typing_extensions==4.15.0",
+    "urllib3==2.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest-cov>=5.0.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+    "bandit>=1.8.0",
+    "pip-audit>=2.7.0",
+    "pre-commit>=3.7.0",
+    "types-requests>=2.31.0",
+]
+
+[project.scripts]
+self-heal = "main:main"
+
+[project.urls]
+Repository = "https://github.com/NyuydineBill/self-healing-cicd"
+Issues = "https://github.com/NyuydineBill/self-healing-cicd/issues"
+
+[tool.setuptools.packages.find]
+exclude = ["venv*", "tests*", "sample_projects*", "scripts*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short --cov=. --cov-report=term-missing --cov-report=xml"
+
+[tool.coverage.run]
+source = ["."]
+omit = ["venv/*", "tests/*", "sample_projects/*", "scripts/*", "*/migrations/*"]
+
+[tool.coverage.report]
+fail_under = 40
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+ignore_missing_imports = true
+disallow_untyped_defs = true
+disallow_untyped_calls = false
+warn_return_any = false
+warn_unused_ignores = true
+exclude = ["venv/", "sample_projects/", "scripts/"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = ["venv", "sample_projects", "scripts", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+ignore = ["E501", "B008", "SIM108"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["agents", "config", "orchestrator", "parsers", "utils"]
+
+[tool.bandit]
+exclude_dirs = ["venv", "tests", "sample_projects"]
+# B101: assert used in tests; B404/B603/B607: intentional docker subprocess calls (list args, no shell=True)
+skips = ["B101", "B404", "B603", "B607"]

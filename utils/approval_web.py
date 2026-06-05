@@ -5,8 +5,8 @@ import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from typing import Optional
-from urllib.parse import parse_qs, urlparse
+from typing import Any
+from urllib.parse import urlparse
 
 from config.settings import get_settings
 from utils.approval import format_patch_diff
@@ -19,7 +19,7 @@ _PENDING_FILE = "pending_approval.json"
 
 class _ApprovalState:
     def __init__(self) -> None:
-        self.decision: Optional[bool] = None
+        self.decision: bool | None = None
         self.pending: dict = {}
 
 
@@ -73,22 +73,22 @@ def _done_page(approved: bool) -> str:
 class ApprovalWebServer:
     """Minimal local web UI for patch approval."""
 
-    def __init__(self, port: Optional[int] = None):
+    def __init__(self, port: int | None = None):
         settings = get_settings()
         self.port = port or settings.web_approval_port
         self.timeout = settings.web_approval_timeout
         self._state = _ApprovalState()
-        self._server: Optional[HTTPServer] = None
-        self._thread: Optional[threading.Thread] = None
+        self._server: HTTPServer | None = None
+        self._thread: threading.Thread | None = None
 
-    def _make_handler(self):
+    def _make_handler(self) -> type:
         state = self._state
 
         class Handler(BaseHTTPRequestHandler):
-            def log_message(self, fmt, *args):
+            def log_message(self, fmt: str, *args: Any) -> None:
                 logger.debug("approval_web: " + fmt, *args)
 
-            def do_GET(self):
+            def do_GET(self) -> None:
                 parsed = urlparse(self.path)
                 if parsed.path in ("/approve", "/reject"):
                     state.decision = parsed.path == "/approve"
@@ -163,7 +163,7 @@ class ApprovalWebServer:
         return False
 
 
-def run_standalone_server(port: Optional[int] = None) -> None:
+def run_standalone_server(port: int | None = None) -> None:
     """Run approval UI server until Ctrl+C (for manual testing)."""
     server = ApprovalWebServer(port=port)
     server._state.pending = {

@@ -4,6 +4,24 @@ __pycache__/
 logs/
 results/*.json
 results/backups/
+results/audit.log
 !results/.gitkeep
 *.zip
 *.pyc
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# Linting / type-checking caches
+.mypy_cache/
+.ruff_cache/
+
+# Build / packaging
+*.egg-info/
+dist/
+build/
+
+# OS
+.DS_Store

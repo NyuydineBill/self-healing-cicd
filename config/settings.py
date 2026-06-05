@@ -18,8 +18,7 @@ class Settings:
     # GitHub
     github_token: str = field(default_factory=lambda: os.getenv("GITHUB_TOKEN", ""))
     github_pr_token: str = field(
-        default_factory=lambda: os.getenv("GITHUB_PR_TOKEN")
-        or os.getenv("GITHUB_TOKEN", "")
+        default_factory=lambda: os.getenv("GITHUB_PR_TOKEN") or os.getenv("GITHUB_TOKEN") or ""
     )
     github_owner: str = field(default_factory=lambda: os.getenv("GITHUB_OWNER", ""))
     github_repo: str = field(default_factory=lambda: os.getenv("GITHUB_REPO", ""))
@@ -32,9 +31,7 @@ class Settings:
     max_retry_attempts: int = field(
         default_factory=lambda: int(os.getenv("MAX_RETRY_ATTEMPTS", "3"))
     )
-    max_failed_runs: int = field(
-        default_factory=lambda: int(os.getenv("MAX_FAILED_RUNS", "5"))
-    )
+    max_failed_runs: int = field(default_factory=lambda: int(os.getenv("MAX_FAILED_RUNS", "5")))
     max_failures_per_run: int = field(
         default_factory=lambda: int(os.getenv("MAX_FAILURES_PER_RUN", "10"))
     )
@@ -46,9 +43,7 @@ class Settings:
     )
 
     # OpenAI request handling
-    openai_timeout: float = field(
-        default_factory=lambda: float(os.getenv("OPENAI_TIMEOUT", "60"))
-    )
+    openai_timeout: float = field(default_factory=lambda: float(os.getenv("OPENAI_TIMEOUT", "60")))
     openai_max_retries: int = field(
         default_factory=lambda: int(os.getenv("OPENAI_MAX_RETRIES", "3"))
     )
@@ -56,9 +51,7 @@ class Settings:
     # Paths
     logs_dir: Path = field(default_factory=lambda: PROJECT_ROOT / "logs")
     results_dir: Path = field(default_factory=lambda: PROJECT_ROOT / "results")
-    prompts_dir: Path = field(
-        default_factory=lambda: PROJECT_ROOT / "config" / "prompts"
-    )
+    prompts_dir: Path = field(default_factory=lambda: PROJECT_ROOT / "config" / "prompts")
     failure_memory_path: Path = field(
         default_factory=lambda: PROJECT_ROOT / "results" / "failure_memory.json"
     )
@@ -75,9 +68,7 @@ class Settings:
     )
 
     # Safety
-    dry_run: bool = field(
-        default_factory=lambda: os.getenv("DRY_RUN", "false").lower() == "true"
-    )
+    dry_run: bool = field(default_factory=lambda: os.getenv("DRY_RUN", "false").lower() == "true")
     backup_before_patch: bool = field(
         default_factory=lambda: os.getenv("BACKUP_BEFORE_PATCH", "true").lower() == "true"
     )
@@ -104,8 +95,7 @@ class Settings:
         default_factory=lambda: os.getenv("LOG_PARSER_LANGUAGE", "").strip().lower()
     )
     web_approval_enabled: bool = field(
-        default_factory=lambda: os.getenv("WEB_APPROVAL_ENABLED", "false").lower()
-        == "true"
+        default_factory=lambda: os.getenv("WEB_APPROVAL_ENABLED", "false").lower() == "true"
     )
     web_approval_port: int = field(
         default_factory=lambda: int(os.getenv("WEB_APPROVAL_PORT", "8765"))
@@ -114,8 +104,7 @@ class Settings:
         default_factory=lambda: int(os.getenv("WEB_APPROVAL_TIMEOUT", "600"))
     )
     web_approval_open_browser: bool = field(
-        default_factory=lambda: os.getenv("WEB_APPROVAL_OPEN_BROWSER", "true").lower()
-        == "true"
+        default_factory=lambda: os.getenv("WEB_APPROVAL_OPEN_BROWSER", "true").lower() == "true"
     )
 
     # Offline / API
@@ -146,12 +135,8 @@ class Settings:
     git_branch_prefix: str = field(
         default_factory=lambda: os.getenv("GIT_BRANCH_PREFIX", "self-heal")
     )
-    git_base_branch: str = field(
-        default_factory=lambda: os.getenv("GIT_BASE_BRANCH", "main")
-    )
-    git_push_remote: str = field(
-        default_factory=lambda: os.getenv("GIT_PUSH_REMOTE", "origin")
-    )
+    git_base_branch: str = field(default_factory=lambda: os.getenv("GIT_BASE_BRANCH", "main"))
+    git_push_remote: str = field(default_factory=lambda: os.getenv("GIT_PUSH_REMOTE", "origin"))
     git_author_name: str = field(
         default_factory=lambda: os.getenv("GIT_AUTHOR_NAME", "Self-Healing Bot")
     )
