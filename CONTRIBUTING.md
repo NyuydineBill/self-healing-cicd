@@ -1,5 +1,21 @@
 # Contributing
 
+## Installation
+
+**From PyPI (recommended for users):**
+```bash
+pip install self-healing-cicd
+self-heal check
+```
+
+**As a GitHub Action (CI integration):**
+```yaml
+- uses: NyuydineBill/self-healing-cicd@v0.1.0
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+```
+
 ## Development Setup
 
 ```bash
@@ -63,3 +79,21 @@ fix: handle empty log zip gracefully
 docs: update .env.example with new settings
 chore: bump openai to 2.x
 ```
+
+## Releasing a New Version
+
+1. Update `version` in [pyproject.toml](pyproject.toml).
+2. Commit: `git commit -m "chore: bump version to vX.Y.Z"`
+3. Push: `git push origin main`
+4. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`
+
+The [publish workflow](.github/workflows/publish.yml) runs automatically:
+- Runs the full test suite (publish is blocked on failure)
+- Builds wheel + sdist
+- Publishes to [PyPI](https://pypi.org/project/self-healing-cicd) via OIDC (no token needed)
+- Creates a GitHub Release with auto-generated notes and dist files attached
+
+## Action inputs reference
+
+See [action.yml](action.yml) for the full list of inputs and defaults.
+Key CI-safe defaults set automatically: `REQUIRE_APPROVAL=false`, `AUTO_APPROVE_PATCHES=true`.

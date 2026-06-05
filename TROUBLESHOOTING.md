@@ -59,3 +59,25 @@ The UI binds to `127.0.0.1:<WEB_APPROVAL_PORT>`. It is intentionally loopback-on
 ## Getting More Detail
 
 Set `LOG_LEVEL=DEBUG` in `.env` for verbose output including patch previews (also set `LOG_PATCH_PREVIEW_CHARS=500`).
+
+---
+
+## GitHub Action Issues
+
+### Action fails with `self-heal: command not found`
+The composite action installs from `${{ github.action_path }}`. If you're running the action from a workflow that also checks out the repo, make sure the `uses:` step runs before any step that might override `PATH`. This is usually not an issue in standard workflows.
+
+### Action fails with `pip install` errors
+The action runs `pip install "${{ github.action_path }}"` which builds from source. If your runner has a very old `pip` this can fail. Add a step before the action use:
+```yaml
+- run: python -m pip install --upgrade pip
+```
+
+### PyPI install is an older version than expected
+PyPI may take a few minutes to propagate a new release globally. Wait 2–3 minutes and retry. Check the current published version at [pypi.org/project/self-healing-cicd](https://pypi.org/project/self-healing-cicd).
+
+### GitHub Action shows `publish-pypi` failed with 403
+The PyPI OIDC trusted publisher is not configured. Go to pypi.org → Account Settings → Publishing and register:
+- Owner: `NyuydineBill`, Repo: `self-healing-cicd`, Workflow: `publish.yml`, Environment: `pypi`
+
+Also ensure the `pypi` environment exists in GitHub repo Settings → Environments.

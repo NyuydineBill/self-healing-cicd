@@ -227,6 +227,86 @@ Step-by-step resolution for the most common errors: missing tokens, Docker not r
 
 ---
 
+## 18. Typing Modernisation — Codebase-wide
+
+**Files:** all modules under `agents/`, `config/`, `parsers/`, `utils/`, `tests/`
+
+Applied ruff `UP` (pyupgrade) and `F` (pyflakes) auto-fixes across the entire codebase:
+- Replaced deprecated `typing.List`, `Dict`, `Tuple`, `Optional`, `Type`, `Set` with Python 3.10+ builtins (`list`, `dict`, `tuple`, `X | None`, `type`, `set`).
+- Replaced `Optional[X]` annotations with `X | None` union syntax.
+- Replaced `class ErrorCategory(str, Enum)` with `class ErrorCategory(StrEnum)`.
+- Removed all unused imports surfaced by `F401`.
+- Used `datetime.UTC` alias instead of `timezone.utc` (`UP017`).
+- Removed unnecessary `open()` mode `"r"` arguments (`UP015`).
+- Collapsed nested `if` statements into compound conditions (`SIM102`).
+- Excluded `tests/` from mypy in both `pyproject.toml` and `.pre-commit-config.yaml` — test functions do not require return type annotations.
+
+**Why it matters:** The codebase had type hints written in pre-3.10 style that triggered 104 ruff violations. All are now clean and the pre-commit hooks enforce the modern style on every future commit.
+
+---
+
+## 19. GitHub Action — `action.yml`
+
+**File:** [action.yml](action.yml)
+
+Added a GitHub composite action so any repository can consume the self-healer without cloning or copying workflow files:
+
+```yaml
+- uses: NyuydineBill/self-healing-cicd@v0.1.0
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+```
+
+**Inputs exposed:**
+
+| Input | Default | Purpose |
+|-------|---------|---------|
+| `github-token` | — | Required. Token with `repo` + `actions:read` scope |
+| `openai-api-key` | — | Required. OpenAI key for LLM calls |
+| `github-owner` | repo owner | GitHub owner of the target repo |
+| `github-repo` | repo name | Repository to monitor |
+| `openai-model` | `gpt-4o-mini` | LLM model |
+| `max-retry-attempts` | `3` | Patch-and-validate retries |
+| `dry-run` | `false` | Skip file writes and Docker |
+| `git-enabled` | `true` | Commit repairs and open PRs |
+| `git-create-pr` | `true` | Open a PR after repair |
+| `git-base-branch` | `main` | PR target branch |
+| `allowed-path-prefixes` | `app/,src/,lib/,tests/` | Files the patcher may touch |
+| `max-failed-runs` | `5` | Max runs to process |
+
+CI-safe defaults are set automatically: `REQUIRE_APPROVAL=false`, `AUTO_APPROVE_PATCHES=true`, `WEB_APPROVAL_ENABLED=false`.
+
+The action installs the package from its own checked-out source (`pip install ${{ github.action_path }}`), so pinning `@v0.1.0` guarantees reproducibility.
+
+**Why it matters:** Without this, users had to copy `self-heal.yml` into their repo manually. The action reduces adoption to two lines in any workflow.
+
+---
+
+## 20. Automated Release Pipeline — `.github/workflows/publish.yml`
+
+**File:** [.github/workflows/publish.yml](.github/workflows/publish.yml)
+
+Added a release workflow that triggers on `v*` tags and runs three sequential jobs:
+
+| Job | What it does |
+|-----|-------------|
+| `test` | Runs the full `pytest` suite — publish is blocked if tests fail |
+| `publish-pypi` | Builds wheel + sdist with `python -m build`; publishes to PyPI via OIDC trusted publisher (no API token stored in secrets) |
+| `github-release` | Creates a GitHub Release with auto-generated notes and the `.whl` / `.tar.gz` dist files attached |
+
+**Publishing a new version:**
+```bash
+git tag v0.x.x
+git push origin v0.x.x
+```
+
+**Why it matters:** Previously there was no release automation. Now the entire publish pipeline — test → build → PyPI → GitHub Release — runs automatically on every tag in under 2 minutes. The OIDC trusted publisher means no long-lived PyPI credentials are stored anywhere.
+
+**First release:** `v0.1.0` was published successfully on 2026-06-05. Package available at [pypi.org/project/self-healing-cicd](https://pypi.org/project/self-healing-cicd).
+
+---
+
 ## Summary Table
 
 | # | What | File(s) | Category |
@@ -248,3 +328,6 @@ Step-by-step resolution for the most common errors: missing tokens, Docker not r
 | 15 | Line ending consistency | `.gitattributes` | Git hygiene |
 | 16 | Extended .gitignore | `.gitignore` | Git hygiene |
 | 17 | CONTRIBUTING, SECURITY, LICENSE, TROUBLESHOOTING | `*.md`, `LICENSE` | Documentation |
+| 18 | Typing modernisation (104 ruff UP/F fixes) | all modules | Code quality |
+| 19 | GitHub Action | `action.yml` | Distribution |
+| 20 | Automated PyPI + GitHub Release pipeline | `.github/workflows/publish.yml` | Distribution |
