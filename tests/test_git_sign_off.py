@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock, patch
-
 import pytest
 
 from utils.git_repair import GitRepairManager

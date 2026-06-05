@@ -1,5 +1,5 @@
 import time
-from typing import Any, Optional
+from typing import Any
 
 import requests
 
@@ -16,14 +16,14 @@ def request_with_retry(
     method: str,
     url: str,
     *,
-    max_retries: Optional[int] = None,
+    max_retries: int | None = None,
     timeout: float = 30,
     **kwargs: Any,
 ) -> requests.Response:
     """HTTP request with exponential backoff on rate limits and server errors."""
     settings = get_settings()
     max_retries = max_retries or settings.github_api_max_retries
-    last_response: Optional[requests.Response] = None
+    last_response: requests.Response | None = None
 
     for attempt in range(1, max_retries + 1):
         response = requests.request(method, url, timeout=timeout, **kwargs)
@@ -43,9 +43,7 @@ def request_with_retry(
             return response
 
         retry_after = response.headers.get("Retry-After")
-        delay = int(retry_after) if retry_after and retry_after.isdigit() else min(
-            2 ** attempt, 60
-        )
+        delay = int(retry_after) if retry_after and retry_after.isdigit() else min(2**attempt, 60)
         logger.warning(
             "GitHub API status %s; retry %d/%d in %ds — %s",
             response.status_code,

@@ -1,13 +1,12 @@
 import os
 from pathlib import Path
-from typing import List
 
 from config.settings import get_settings
 
 
-def discover_sample_tests(base_dir: str = "sample_projects") -> List[str]:
+def discover_sample_tests(base_dir: str = "sample_projects") -> list[str]:
     """Discover test_*.py files under sample project directories."""
-    sample_tests: List[str] = []
+    sample_tests: list[str] = []
 
     if not os.path.isdir(base_dir):
         return sample_tests
@@ -25,7 +24,7 @@ def discover_sample_tests(base_dir: str = "sample_projects") -> List[str]:
     return sample_tests
 
 
-def discover_tests_under_prefixes(prefixes: List[str] | None = None) -> List[str]:
+def discover_tests_under_prefixes(prefixes: list[str] | None = None) -> list[str]:
     """
     Discover test files under configured allowed path prefixes.
 
@@ -33,7 +32,7 @@ def discover_tests_under_prefixes(prefixes: List[str] | None = None) -> List[str
     """
     settings = get_settings()
     prefixes = prefixes or list(settings.allowed_path_prefixes)
-    discovered: List[str] = []
+    discovered: list[str] = []
 
     for prefix in prefixes:
         base = Path(prefix.rstrip("/"))
@@ -50,7 +49,7 @@ def discover_tests_under_prefixes(prefixes: List[str] | None = None) -> List[str
     return sorted(set(discovered))
 
 
-def discover_all_test_targets() -> List[str]:
+def discover_all_test_targets() -> list[str]:
     """Merge sample projects and broader app/src test discovery."""
     settings = get_settings()
     paths = discover_sample_tests(settings.sample_projects_dir)

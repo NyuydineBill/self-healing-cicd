@@ -1,6 +1,5 @@
 import shutil
 import subprocess
-from typing import List
 
 from config.settings import Settings
 
@@ -8,11 +7,9 @@ from config.settings import Settings
 class ConfigurationError(Exception):
     """Raised when required configuration or runtime dependencies are missing."""
 
-    def __init__(self, errors: List[str]):
+    def __init__(self, errors: list[str]):
         self.errors = errors
-        message = "Configuration validation failed:\n" + "\n".join(
-            f"  - {e}" for e in errors
-        )
+        message = "Configuration validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
         super().__init__(message)
 
 
@@ -37,16 +34,13 @@ def validate_configuration(settings: Settings) -> None:
     Dry-run mode relaxes GitHub and Docker requirements but still needs OpenAI
     for diagnosis and patch generation.
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     if not settings.openai_api_key:
         errors.append("OPENAI_API_KEY is required (set in .env or environment)")
 
-    if settings.git_enabled and not settings.dry_run:
-        if not settings.github_token:
-            errors.append(
-                "GITHUB_TOKEN is required when GIT_ENABLED=true (for push/PR)"
-            )
+    if settings.git_enabled and not settings.dry_run and not settings.github_token:
+        errors.append("GITHUB_TOKEN is required when GIT_ENABLED=true (for push/PR)")
 
     if settings.offline_mode:
         if not settings.openai_api_key:
@@ -68,9 +62,7 @@ def validate_configuration(settings: Settings) -> None:
         errors.append("GITHUB_REPO is required (set in .env or environment)")
 
     if not _docker_available():
-        errors.append(
-            "Docker is not available (install Docker and ensure the daemon is running)"
-        )
+        errors.append("Docker is not available (install Docker and ensure the daemon is running)")
 
     prompts_dir = settings.prompts_dir
     for name in ("diagnosis", "patch"):

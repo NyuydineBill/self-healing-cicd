@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import List, Optional
 
 from config.settings import get_settings
 from utils.logging import get_logger
@@ -11,12 +10,12 @@ class PolicyViolation(Exception):
     """Raised when a repair target violates path policy."""
 
 
-def get_allowed_prefixes() -> List[str]:
+def get_allowed_prefixes() -> list[str]:
     settings = get_settings()
     return list(settings.allowed_path_prefixes)
 
 
-def is_path_allowed(target_file: str, prefixes: Optional[List[str]] = None) -> bool:
+def is_path_allowed(target_file: str, prefixes: list[str] | None = None) -> bool:
     """Return True if target_file is under an allowed prefix."""
     prefixes = prefixes if prefixes is not None else get_allowed_prefixes()
     if not prefixes:
@@ -34,7 +33,5 @@ def enforce_path_policy(target_file: str) -> None:
     """Raise PolicyViolation if the target file is not allowed."""
     if not is_path_allowed(target_file):
         allowed = ", ".join(get_allowed_prefixes())
-        raise PolicyViolation(
-            f"Target file '{target_file}' is outside allowed paths: {allowed}"
-        )
+        raise PolicyViolation(f"Target file '{target_file}' is outside allowed paths: {allowed}")
     logger.debug("Path policy OK for %s", target_file)

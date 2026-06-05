@@ -1,6 +1,5 @@
 import shutil
 from pathlib import Path
-from typing import Optional
 
 from config.settings import get_settings
 from utils.logging import get_logger
@@ -11,7 +10,7 @@ logger = get_logger("file_backup")
 class FileBackupManager:
     """Backup target files before patching and restore on failed validation."""
 
-    def __init__(self, backup_root: Optional[Path] = None):
+    def __init__(self, backup_root: Path | None = None):
         settings = get_settings()
         self.backup_root = backup_root or (settings.results_dir / "backups")
         self.backup_root.mkdir(parents=True, exist_ok=True)
@@ -33,9 +32,7 @@ class FileBackupManager:
         logger.info("Backed up original file to %s", dest)
         return dest
 
-    def backup_before_attempt(
-        self, target_file: str, run_id: int | str, attempt: int
-    ) -> Path:
+    def backup_before_attempt(self, target_file: str, run_id: int | str, attempt: int) -> Path:
         """Save state immediately before applying a patch."""
         dest = self._backup_path(target_file, run_id, f"attempt{attempt}")
         shutil.copy2(target_file, dest)

@@ -29,7 +29,7 @@ class MonitoringAgent:
         return False
 
     def get_failed_runs(self) -> list[dict[str, Any]]:
-        url = f"https://api.github.com/repos/{self.repo_owner}/" f"{self.repo_name}/actions/runs"
+        url = f"https://api.github.com/repos/{self.repo_owner}/{self.repo_name}/actions/runs"
 
         response = request_with_retry(
             "GET",

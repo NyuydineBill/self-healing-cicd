@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 
 from openai import OpenAI
 
@@ -12,8 +11,7 @@ logger = get_logger("patch_agent")
 
 
 class PatchAgent:
-
-    def __init__(self, client: Optional[OpenAI] = None):
+    def __init__(self, client: OpenAI | None = None):
         settings = get_settings()
         self.client = client or OpenAI(api_key=settings.openai_api_key)
         self.model = settings.openai_model
@@ -54,7 +52,7 @@ class PatchAgent:
         target_file: str,
         diagnosis: str = "",
     ) -> str:
-        with open(target_file, "r", encoding="utf-8") as f:
+        with open(target_file, encoding="utf-8") as f:
             current_file_content = f.read()
 
         source_context = self._load_related_source(target_file)
@@ -81,9 +79,7 @@ class PatchAgent:
         return response.choices[0].message.content or ""
 
     def apply_patch(self, file_path: str, patch_code: str) -> bool:
-        cleaned_patch = (
-            patch_code.replace("```python", "").replace("```", "").strip()
-        )
+        cleaned_patch = patch_code.replace("```python", "").replace("```", "").strip()
 
         with open(file_path, "w", encoding="utf-8") as file:
             file.write(cleaned_patch)

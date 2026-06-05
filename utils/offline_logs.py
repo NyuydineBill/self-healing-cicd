@@ -1,5 +1,5 @@
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator, List, Optional, Tuple
 
 from config.settings import get_settings
 from utils.log_extractor import iter_log_files
@@ -8,7 +8,7 @@ from utils.logging import get_logger
 logger = get_logger("offline_logs")
 
 
-def discover_offline_runs(logs_root: Optional[Path] = None) -> List[Tuple[str, Path]]:
+def discover_offline_runs(logs_root: Path | None = None) -> list[tuple[str, Path]]:
     """
     Find cached workflow runs under logs/extracted/{run_id}/.
 
@@ -21,7 +21,7 @@ def discover_offline_runs(logs_root: Optional[Path] = None) -> List[Tuple[str, P
         logger.warning("Offline logs directory not found: %s", root)
         return []
 
-    runs: List[Tuple[str, Path]] = []
+    runs: list[tuple[str, Path]] = []
     for child in sorted(root.iterdir(), reverse=True):
         if child.is_dir():
             runs.append((child.name, child))
@@ -30,8 +30,6 @@ def discover_offline_runs(logs_root: Optional[Path] = None) -> List[Tuple[str, P
     return runs
 
 
-def iter_offline_logs(
-    run_id: str, extract_dir: Path
-) -> Generator[Tuple[str, str], None, None]:
+def iter_offline_logs(run_id: str, extract_dir: Path) -> Generator[tuple[str, str], None, None]:
     """Yield log files for a cached run."""
     yield from iter_log_files(extract_dir)

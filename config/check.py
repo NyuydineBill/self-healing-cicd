@@ -1,8 +1,6 @@
 import shutil
 import subprocess
 import sys
-from pathlib import Path
-from typing import List, Tuple
 
 from config.settings import Settings, get_settings
 from config.validation import ConfigurationError, validate_configuration
@@ -14,7 +12,7 @@ def run_health_check(settings: Settings | None = None) -> int:
     Pre-flight check for production use. Returns 0 if all checks pass, 1 otherwise.
     """
     settings = settings or get_settings()
-    checks: List[Tuple[str, bool, str]] = []
+    checks: list[tuple[str, bool, str]] = []
 
     def add(name: str, ok: bool, detail: str = "") -> None:
         checks.append((name, ok, detail))
@@ -80,9 +78,7 @@ def run_health_check(settings: Settings | None = None) -> int:
 
     # Offline cache (required only when OFFLINE_MODE=true)
     offline_dir = settings.logs_dir / "extracted"
-    cached_count = (
-        len(list(offline_dir.iterdir())) if offline_dir.is_dir() else 0
-    )
+    cached_count = len(list(offline_dir.iterdir())) if offline_dir.is_dir() else 0
     if settings.offline_mode:
         add(
             "Offline log cache",

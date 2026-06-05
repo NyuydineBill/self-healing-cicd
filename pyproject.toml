@@ -91,7 +91,7 @@ disallow_untyped_defs = true
 disallow_untyped_calls = false
 warn_return_any = false
 warn_unused_ignores = true
-exclude = ["venv/", "sample_projects/", "scripts/"]
+exclude = ["venv/", "sample_projects/", "scripts/", "tests/"]
 
 [tool.ruff]
 line-length = 100

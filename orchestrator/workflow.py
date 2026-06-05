@@ -173,8 +173,7 @@ class WorkflowOrchestrator:
             batch = BatchWorkflowResult(
                 status="completed",
                 message=(
-                    f"Processed {len(all_results)} failure(s); "
-                    f"{succeeded} repaired successfully."
+                    f"Processed {len(all_results)} failure(s); {succeeded} repaired successfully."
                 ),
                 results=all_results,
             )
@@ -507,9 +506,7 @@ class WorkflowOrchestrator:
                 return WorkflowResult(
                     run_id=run_id,
                     status="dry_run_complete",
-                    message=(
-                        "Dry-run finished: diagnosis and patch generated " "without applying."
-                    ),
+                    message=("Dry-run finished: diagnosis and patch generated without applying."),
                     failure_type=failure_type,
                     target_file=target_file,
                     attempts=attempts,

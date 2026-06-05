@@ -1,11 +1,10 @@
 from pathlib import Path
-from typing import Optional
 
 
 def resolve_validation_scope(
     target_file: str,
     sample_projects_dir: str = "sample_projects",
-) -> Optional[str]:
+) -> str | None:
     """
     Derive a scoped pytest path from a target file.
 

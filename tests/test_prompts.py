@@ -4,9 +4,6 @@ from utils.prompts import load_prompt
 
 
 def test_load_prompt_substitutes_variables(prompts_dir):
-    import config.settings as settings_module
-
-    settings = settings_module.get_settings()
     result = load_prompt(
         "diagnosis",
         {"failure_context": "FAILED test", "failure_type": "assertion_error"},

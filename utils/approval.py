@@ -1,6 +1,5 @@
 import difflib
 import sys
-from typing import Optional
 
 from config.settings import get_settings
 from utils.logging import get_logger
@@ -8,9 +7,7 @@ from utils.logging import get_logger
 logger = get_logger("approval")
 
 
-def format_patch_diff(
-    target_file: str, original: str, patched: str, context_lines: int = 3
-) -> str:
+def format_patch_diff(target_file: str, original: str, patched: str, context_lines: int = 3) -> str:
     """Unified diff for human review."""
     original_lines = original.splitlines(keepends=True)
     patched_lines = patched.splitlines(keepends=True)
@@ -68,8 +65,7 @@ def request_patch_approval(
     diff_lines = diff.splitlines()
     if len(diff_lines) > max_lines:
         diff_display = (
-            "\n".join(diff_lines[:max_lines])
-            + f"\n... [{len(diff_lines) - max_lines} more lines]"
+            "\n".join(diff_lines[:max_lines]) + f"\n... [{len(diff_lines) - max_lines} more lines]"
         )
     else:
         diff_display = diff

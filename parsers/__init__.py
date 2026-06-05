@@ -1,12 +1,11 @@
 import os
-from typing import List, Optional, Type
 
 from parsers.base import LogParser
 from parsers.go_parser import GoLogParser
 from parsers.java_parser import JavaLogParser
 from parsers.python_parser import PythonLogParser
 
-_PARSERS: List[Type[LogParser]] = [
+_PARSERS: list[type[LogParser]] = [
     PythonLogParser,
     JavaLogParser,
     GoLogParser,
@@ -31,5 +30,5 @@ def get_parser(log_text: str) -> LogParser:
     return PythonLogParser()
 
 
-def list_parsers() -> List[str]:
+def list_parsers() -> list[str]:
     return [cls.language for cls in _PARSERS]

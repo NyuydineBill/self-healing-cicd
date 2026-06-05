@@ -1,5 +1,4 @@
 import re
-from typing import List, Optional
 
 from parsers.base import LogParser
 
@@ -38,15 +37,15 @@ class PythonLogParser(LogParser):
         )
         return any(h in log_text for h in hints)
 
-    def extract_failure_context(self, log_text: str) -> List[str]:
-        extracted: List[str] = []
+    def extract_failure_context(self, log_text: str) -> list[str]:
+        extracted: list[str] = []
         for pattern in self.ERROR_PATTERNS:
             matches = re.findall(pattern, log_text, re.IGNORECASE)
             if matches:
                 extracted.extend(matches)
         return extracted
 
-    def extract_failed_file(self, log_text: str) -> Optional[str]:
+    def extract_failed_file(self, log_text: str) -> str | None:
         for pattern in self.FILE_PATTERNS:
             match = re.search(pattern, log_text)
             if match:

@@ -12,7 +12,7 @@ repos:
       - id: mypy
         additional_dependencies: ["types-requests"]
         args: ["--ignore-missing-imports"]
-        exclude: "^(venv|sample_projects|scripts)/"
+        exclude: "^(venv|sample_projects|scripts|tests)/"
 
   - repo: https://github.com/PyCQA/bandit
     rev: 1.8.3

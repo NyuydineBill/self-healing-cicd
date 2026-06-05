@@ -1,5 +1,3 @@
-from typing import Optional
-
 from openai import OpenAI
 
 from config.settings import get_settings
@@ -11,8 +9,7 @@ logger = get_logger("reasoning_agent")
 
 
 class ReasoningAgent:
-
-    def __init__(self, client: Optional[OpenAI] = None):
+    def __init__(self, client: OpenAI | None = None):
         settings = get_settings()
         self.client = client or OpenAI(api_key=settings.openai_api_key)
         self.model = settings.openai_model

@@ -1,5 +1,4 @@
 import subprocess
-from typing import List
 
 from config.settings import get_settings
 from utils.logging import get_logger
@@ -21,7 +20,7 @@ def cleanup_validation_containers(image_tag: str | None = None) -> None:
         logger.debug("Docker image cleanup disabled; kept image %s", tag)
 
 
-def _run_quiet(cmd: List[str]) -> None:
+def _run_quiet(cmd: list[str]) -> None:
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         if result.returncode != 0 and result.stderr:

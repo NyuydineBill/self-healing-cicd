@@ -1,5 +1,5 @@
 import subprocess
-from typing import Any, Dict, Optional
+from typing import Any
 
 from config.settings import get_settings
 from utils.docker_utils import cleanup_validation_containers
@@ -11,22 +11,19 @@ logger = get_logger("validation_agent")
 
 
 class ValidationAgent:
-
-    def __init__(self, image_tag: Optional[str] = None):
+    def __init__(self, image_tag: str | None = None):
         settings = get_settings()
         self.image_tag = image_tag or settings.docker_image_tag
         self.cleanup_after = settings.docker_cleanup_after_validation
         self.validate_full_repo = settings.validate_full_repo
         self.sample_projects_dir = settings.sample_projects_dir
 
-    def _pytest_command(self, target_file: Optional[str] = None) -> list[str]:
+    def _pytest_command(self, target_file: str | None = None) -> list[str]:
         """Build docker run pytest args, scoped to project when possible."""
         if self.validate_full_repo or not target_file:
             return ["pytest", "-v"]
 
-        scope = resolve_validation_scope(
-            target_file, self.sample_projects_dir
-        )
+        scope = resolve_validation_scope(target_file, self.sample_projects_dir)
         if scope:
             logger.info("Scoped validation to %s", scope)
             return ["pytest", scope, "-v"]
@@ -37,7 +34,7 @@ class ValidationAgent:
         )
         return ["pytest", "-v"]
 
-    def validate_patch(self, target_file: Optional[str] = None) -> Dict[str, Any]:
+    def validate_patch(self, target_file: str | None = None) -> dict[str, Any]:
         pytest_args = self._pytest_command(target_file)
 
         try:
@@ -95,9 +92,7 @@ class ValidationAgent:
             return {
                 "status": "failed",
                 "output": combined_output,
-                "category": categorize_failure(
-                    combined_output.splitlines()
-                ).value,
+                "category": categorize_failure(combined_output.splitlines()).value,
                 "scope": scope,
             }
 

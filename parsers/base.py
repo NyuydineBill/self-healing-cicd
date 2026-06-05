@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
 
 
 class LogParser(ABC):
@@ -8,11 +7,11 @@ class LogParser(ABC):
     language: str = "unknown"
 
     @abstractmethod
-    def extract_failure_context(self, log_text: str) -> List[str]:
+    def extract_failure_context(self, log_text: str) -> list[str]:
         """Extract error lines from workflow log text."""
 
     @abstractmethod
-    def extract_failed_file(self, log_text: str) -> Optional[str]:
+    def extract_failed_file(self, log_text: str) -> str | None:
         """Resolve a repository-relative path to the failing file, if possible."""
 
     def matches(self, log_text: str) -> bool:

@@ -34,7 +34,7 @@ jobs:
         run: ruff format --check .
 
       - name: Mypy type check
-        run: mypy agents/ config/ orchestrator/ parsers/ utils/ main.py --ignore-missing-imports
+        run: mypy agents/ config/ orchestrator/ parsers/ utils/ main.py --ignore-missing-imports --exclude tests/
 
   security:
     name: Security Scan

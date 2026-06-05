@@ -1,5 +1,5 @@
 import re
-from typing import Iterable, List, Optional, Set
+from collections.abc import Iterable
 
 _SECRET_PATTERNS = [
     re.compile(r"ghp_[A-Za-z0-9_]{20,}", re.I),
@@ -9,10 +9,10 @@ _SECRET_PATTERNS = [
     re.compile(r"Bearer\s+[A-Za-z0-9._\-]+", re.I),
 ]
 
-_known_secrets: Set[str] = set()
+_known_secrets: set[str] = set()
 
 
-def register_secrets(values: Iterable[Optional[str]]) -> None:
+def register_secrets(values: Iterable[str | None]) -> None:
     """Register literal secret values to redact from logs."""
     for value in values:
         if value and len(value) >= 8:

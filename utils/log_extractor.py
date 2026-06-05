@@ -1,7 +1,7 @@
 import os
 import zipfile
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator, Tuple
 
 from config.settings import get_settings
 from utils.logging import get_logger
@@ -30,7 +30,7 @@ def save_and_extract_logs(zip_bytes: bytes, run_id: int | str) -> Path:
     return extract_dir
 
 
-def iter_log_files(extract_dir: Path) -> Generator[Tuple[str, str], None, None]:
+def iter_log_files(extract_dir: Path) -> Generator[tuple[str, str], None, None]:
     """Yield (file_path, log_text) for each extracted log file."""
     for root, _, files in os.walk(extract_dir):
         for filename in sorted(files):
@@ -38,7 +38,7 @@ def iter_log_files(extract_dir: Path) -> Generator[Tuple[str, str], None, None]:
             if not os.path.isfile(file_path):
                 continue
             try:
-                with open(file_path, "r", errors="ignore", encoding="utf-8") as f:
+                with open(file_path, errors="ignore", encoding="utf-8") as f:
                     yield file_path, f.read()
             except OSError as exc:
                 logger.warning("Skipping unreadable log file %s: %s", file_path, exc)

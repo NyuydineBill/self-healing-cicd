@@ -1,5 +1,4 @@
 import re
-from typing import List, Optional
 
 from parsers.base import LogParser
 
@@ -22,15 +21,15 @@ class GoLogParser(LogParser):
         hints = ("--- FAIL:", "FAIL\t", "panic:", ".go:", "go test", "go build")
         return any(h in log_text for h in hints)
 
-    def extract_failure_context(self, log_text: str) -> List[str]:
-        extracted: List[str] = []
+    def extract_failure_context(self, log_text: str) -> list[str]:
+        extracted: list[str] = []
         for pattern in self.ERROR_PATTERNS:
             matches = re.findall(pattern, log_text, re.IGNORECASE)
             if matches:
                 extracted.extend(matches)
         return extracted
 
-    def extract_failed_file(self, log_text: str) -> Optional[str]:
+    def extract_failed_file(self, log_text: str) -> str | None:
         patterns = [
             r"--- FAIL:\s+\S+\s+\((.+?\.go):\d+\)",
             r"(\S+\.go):(\d+):",

@@ -1,9 +1,8 @@
 import re
-from enum import Enum
-from typing import List
+from enum import StrEnum
 
 
-class ErrorCategory(str, Enum):
+class ErrorCategory(StrEnum):
     ASSERTION = "assertion_error"
     IMPORT = "import_error"
     SYNTAX = "syntax_error"
@@ -25,7 +24,7 @@ _PATTERNS: list[tuple[ErrorCategory, re.Pattern]] = [
 ]
 
 
-def categorize_failure(errors: List[str], validation_status: str | None = None) -> ErrorCategory:
+def categorize_failure(errors: list[str], validation_status: str | None = None) -> ErrorCategory:
     """Classify failure context into a structured error category."""
     if validation_status == "build_failed":
         return ErrorCategory.BUILD
