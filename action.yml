@@ -1,0 +1,90 @@
+name: 'Self-Healing CI/CD'
+description: 'AI-powered self-healing for GitHub Actions — automatically diagnoses and repairs failing CI workflows using LLMs'
+author: 'NyuydineBill'
+
+branding:
+  icon: 'refresh-cw'
+  color: 'green'
+
+inputs:
+  github-token:
+    description: 'GitHub token with repo and actions:read scope. Use secrets.GITHUB_TOKEN or a PAT for PR creation.'
+    required: true
+  openai-api-key:
+    description: 'OpenAI API key for LLM-based diagnosis and patch generation.'
+    required: true
+  github-owner:
+    description: 'GitHub repository owner. Defaults to the current repository owner.'
+    required: false
+    default: ${{ github.repository_owner }}
+  github-repo:
+    description: 'GitHub repository name. Defaults to the current repository name.'
+    required: false
+    default: ${{ github.event.repository.name }}
+  openai-model:
+    description: 'OpenAI model to use for diagnosis and patch generation.'
+    required: false
+    default: 'gpt-4o-mini'
+  max-retry-attempts:
+    description: 'Maximum patch-and-validate retry attempts per failure.'
+    required: false
+    default: '3'
+  dry-run:
+    description: 'Diagnose and generate patches without writing files or running Docker validation.'
+    required: false
+    default: 'false'
+  git-enabled:
+    description: 'Commit repairs to a branch and open a pull request.'
+    required: false
+    default: 'true'
+  git-create-pr:
+    description: 'Open a pull request after committing the repair.'
+    required: false
+    default: 'true'
+  git-base-branch:
+    description: 'Base branch for repair pull requests.'
+    required: false
+    default: 'main'
+  allowed-path-prefixes:
+    description: 'Comma-separated path prefixes the patcher is allowed to modify.'
+    required: false
+    default: 'app/,src/,lib/,tests/'
+  max-failed-runs:
+    description: 'Maximum number of failed workflow runs to process per execution.'
+    required: false
+    default: '5'
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install self-healing-cicd
+      shell: bash
+      run: pip install "${{ github.action_path }}"
+
+    - name: Run self-heal
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        GITHUB_PR_TOKEN: ${{ inputs.github-token }}
+        OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+        GITHUB_OWNER: ${{ inputs.github-owner }}
+        GITHUB_REPO: ${{ inputs.github-repo }}
+        OPENAI_MODEL: ${{ inputs.openai-model }}
+        MAX_RETRY_ATTEMPTS: ${{ inputs.max-retry-attempts }}
+        DRY_RUN: ${{ inputs.dry-run }}
+        GIT_ENABLED: ${{ inputs.git-enabled }}
+        GIT_CREATE_PR: ${{ inputs.git-create-pr }}
+        GIT_BASE_BRANCH: ${{ inputs.git-base-branch }}
+        MAX_FAILED_RUNS: ${{ inputs.max-failed-runs }}
+        ALLOWED_PATH_PREFIXES: ${{ inputs.allowed-path-prefixes }}
+        # CI-safe defaults: no interactive approval, always back up files
+        REQUIRE_APPROVAL: 'false'
+        AUTO_APPROVE_PATCHES: 'true'
+        BACKUP_BEFORE_PATCH: 'true'
+        WEB_APPROVAL_ENABLED: 'false'
+      run: self-heal
