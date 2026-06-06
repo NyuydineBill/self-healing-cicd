@@ -323,7 +323,11 @@ class WorkflowOrchestrator:
 
             target_file = self._resolve_target_file(log_text, sample_test_paths)
             if not target_file:
-                logger.warning("Could not resolve target file from log: %s", log_path)
+                logger.warning(
+                    "Could not resolve target file from log: %s | snippet: %.300s",
+                    log_path,
+                    log_text.replace("\n", " "),
+                )
                 continue
 
             try:
@@ -392,12 +396,15 @@ class WorkflowOrchestrator:
         return target_file
 
     def _broad_file_search(self, log_text: str) -> str | None:
-        """Find any relative .py path mentioned in the log that passes policy and exists on disk."""
+        """Find any relative .py path in the log that passes path policy."""
+        candidates: list[str] = []
         for match in re.finditer(r"\b((?:[\w][\w.-]*/)+[\w.-]+\.py)\b", log_text):
             path = match.group(1)
-            if is_path_allowed(path) and os.path.exists(path):
-                logger.debug("Broad file search found: %s", path)
-                return path
+            if is_path_allowed(path):
+                candidates.append(path)
+        if candidates:
+            logger.info("Broad file search candidates: %s", candidates)
+            return candidates[0]
         return None
 
     def _repair_with_retries(

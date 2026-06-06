@@ -1,4 +1,5 @@
 import os
+import re
 import zipfile
 from collections.abc import Generator
 from pathlib import Path
@@ -7,6 +8,9 @@ from config.settings import get_settings
 from utils.logging import get_logger
 
 logger = get_logger("log_extractor")
+
+# Strip ANSI/VT100 escape sequences left in GitHub Actions log files
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mGKHF]|\[[0-9;]*[mGKHF]")
 
 
 def save_and_extract_logs(zip_bytes: bytes, run_id: int | str) -> Path:
@@ -39,6 +43,7 @@ def iter_log_files(extract_dir: Path) -> Generator[tuple[str, str], None, None]:
                 continue
             try:
                 with open(file_path, errors="ignore", encoding="utf-8") as f:
-                    yield file_path, f.read()
+                    raw = f.read()
+                yield file_path, _ANSI_RE.sub("", raw)
             except OSError as exc:
                 logger.warning("Skipping unreadable log file %s: %s", file_path, exc)

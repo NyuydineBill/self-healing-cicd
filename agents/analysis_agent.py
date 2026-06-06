@@ -61,6 +61,7 @@ class AnalysisAgent:
                 timeout=settings.openai_timeout,
             )
             file_path = resp.choices[0].message.content.strip()
+            logger.info("LLM file identification response: %r", file_path)
             if (
                 file_path
                 and file_path != "UNKNOWN"
@@ -70,5 +71,5 @@ class AnalysisAgent:
                 logger.info("LLM identified target file: %s", file_path)
                 return file_path
         except Exception as exc:
-            logger.debug("LLM file identification failed: %s", exc)
+            logger.warning("LLM file identification failed: %s", exc)
         return None
