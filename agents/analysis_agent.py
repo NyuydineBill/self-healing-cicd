@@ -63,7 +63,9 @@ class AnalysisAgent:
     def extract_failed_file(self, log_text: str) -> str | None:
         parser = get_parser(log_text)
         result = parser.extract_failed_file(log_text)
-        if result:
+        # Guard: skip paths that don't actually exist on disk (e.g. pytest internals
+        # extracted from the traceback such as lib/python3.12/.../python.py)
+        if result and Path(result).is_file():
             return result
         logger.debug("Pattern matching found no target file; trying LLM fallback")
         return self._llm_identify_file(log_text)
@@ -87,8 +89,8 @@ class AnalysisAgent:
             if not path.startswith("/") and "/" in path:
                 seen[path] = None
 
-        # 2. FAILED test lines (pytest short form)
-        for m in re.finditer(r"FAILED\s+([\w./\\-]+\.py)", log_text):
+        # 2. FAILED or ERROR test lines (pytest short form; ERROR for collection failures)
+        for m in re.finditer(r"(?:FAILED|ERROR)\s+([\w./\\-]+\.py)", log_text):
             seen[m.group(1)] = None
 
         # 3. ImportError / ModuleNotFoundError — extract the module's file path

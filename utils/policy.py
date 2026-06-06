@@ -1,3 +1,4 @@
+import contextlib
 from pathlib import Path
 
 from config.settings import get_settings
@@ -74,7 +75,12 @@ def is_path_allowed(target_file: str, prefixes: list[str] | None = None) -> bool
     if not prefixes:
         return True
 
-    normalized = Path(target_file).as_posix().lstrip("./")
+    p = Path(target_file)
+    # Normalize absolute paths to CWD-relative so prefix checks work correctly
+    if p.is_absolute():
+        with contextlib.suppress(ValueError):
+            p = p.relative_to(Path.cwd())
+    normalized = p.as_posix().lstrip("./")
     for prefix in prefixes:
         clean = prefix.strip().rstrip("/")
         if normalized == clean or normalized.startswith(f"{clean}/"):
