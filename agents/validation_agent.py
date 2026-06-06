@@ -1,4 +1,6 @@
+import os
 import subprocess
+import sys
 from typing import Any
 
 from config.settings import get_settings
@@ -18,6 +20,49 @@ class ValidationAgent:
         self.validate_full_repo = settings.validate_full_repo
         self.sample_projects_dir = settings.sample_projects_dir
 
+    def _validate_direct(self, target_file: str | None = None) -> dict[str, Any]:
+        """Run pytest in the current environment without Docker."""
+        scope = (
+            resolve_validation_scope(target_file, self.sample_projects_dir) if target_file else None
+        )
+        if not scope:
+            scope = "."
+        logger.info("Direct validation scope: %s", scope)
+
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pytest", scope, "-v", "--tb=short"],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            combined = result.stdout + result.stderr
+            if result.returncode == 0:
+                logger.info("Direct validation succeeded (scope=%s)", scope)
+                return {"status": "success", "output": combined, "category": None, "scope": scope}
+            logger.warning("Direct validation failed (scope=%s)", scope)
+            return {
+                "status": "failed",
+                "output": combined,
+                "category": categorize_failure(combined.splitlines()).value,
+                "scope": scope,
+            }
+        except subprocess.TimeoutExpired as exc:
+            return {
+                "status": "error",
+                "output": f"Validation timed out: {exc}",
+                "category": ErrorCategory.RUNTIME.value,
+                "scope": scope,
+            }
+        except Exception as exc:
+            logger.exception("Direct validation error: %s", exc)
+            return {
+                "status": "error",
+                "output": str(exc),
+                "category": ErrorCategory.RUNTIME.value,
+                "scope": scope,
+            }
+
     def _pytest_command(self, target_file: str | None = None) -> list[str]:
         """Build docker run pytest args, scoped to project when possible."""
         if self.validate_full_repo or not target_file:
@@ -35,6 +80,10 @@ class ValidationAgent:
         return ["pytest", "-v"]
 
     def validate_patch(self, target_file: str | None = None) -> dict[str, Any]:
+        if not os.path.exists("Dockerfile"):
+            logger.info("No Dockerfile found; running pytest directly (no Docker)")
+            return self._validate_direct(target_file)
+
         pytest_args = self._pytest_command(target_file)
 
         try:
