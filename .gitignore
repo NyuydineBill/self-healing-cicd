@@ -3,6 +3,7 @@ venv/
 __pycache__/
 logs/
 results/*.json
+!results/experiment_results.json
 results/backups/
 results/audit.log
 !results/.gitkeep
