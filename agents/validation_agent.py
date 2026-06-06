@@ -1,6 +1,9 @@
 import os
+import re
+import shlex
 import subprocess
 import sys
+from pathlib import Path
 from typing import Any
 
 from config.settings import get_settings
@@ -11,6 +14,11 @@ from utils.validation_scope import resolve_validation_scope
 
 logger = get_logger("validation_agent")
 
+_UNSAFE_REPLAY_RE = re.compile(
+    r"\brm\b|\brmdir\b|git\s+push|docker\s+push|kubectl\s+delete|--force|>\s*/|\bsudo\b",
+    re.IGNORECASE,
+)
+
 
 class ValidationAgent:
     def __init__(self, image_tag: str | None = None):
@@ -19,6 +27,57 @@ class ValidationAgent:
         self.cleanup_after = settings.docker_cleanup_after_validation
         self.validate_full_repo = settings.validate_full_repo
         self.sample_projects_dir = settings.sample_projects_dir
+
+    def _validate_by_replay(self, command: str) -> dict[str, Any]:
+        """Re-run the exact command that failed in CI — the most accurate validation."""
+        if _UNSAFE_REPLAY_RE.search(command):
+            logger.warning("Replay command looks unsafe, falling back to pytest: %r", command)
+            return self._validate_direct()
+
+        try:
+            parts = shlex.split(command)
+        except ValueError as exc:
+            logger.warning("Could not parse replay command %r: %s", command, exc)
+            return self._validate_direct()
+
+        if not parts:
+            return self._validate_direct()
+
+        # Normalise the binary: strip full path, replace python/python3 with sys.executable
+        raw_binary = Path(parts[0]).name.lower()
+        binary = raw_binary[:-4] if raw_binary.endswith(".exe") else raw_binary
+        if binary in ("python", "python3"):
+            parts[0] = sys.executable
+        elif binary == "pytest":
+            # Ensure we use the venv-local pytest
+            parts = [sys.executable, "-m", "pytest"] + parts[1:]
+
+        logger.info("Replay validation: %s", " ".join(parts))
+        try:
+            result = subprocess.run(parts, capture_output=True, text=True, timeout=120)
+        except FileNotFoundError as exc:
+            logger.warning("Replay command not found (%s); falling back to pytest", exc)
+            return self._validate_direct()
+        except subprocess.TimeoutExpired as exc:
+            return {
+                "status": "error",
+                "output": f"Replay validation timed out: {exc}",
+                "category": ErrorCategory.RUNTIME.value,
+                "scope": command,
+            }
+
+        combined = result.stdout + result.stderr
+        if result.returncode == 0:
+            logger.info("Replay validation succeeded: %s", command)
+            return {"status": "success", "output": combined, "category": None, "scope": command}
+
+        logger.warning("Replay validation failed (exit=%d): %s", result.returncode, command)
+        return {
+            "status": "failed",
+            "output": combined,
+            "category": categorize_failure(combined.splitlines()).value,
+            "scope": command,
+        }
 
     def _validate_direct(self, target_file: str | None = None) -> dict[str, Any]:
         """Run pytest in the current environment without Docker."""
@@ -79,7 +138,16 @@ class ValidationAgent:
         )
         return ["pytest", "-v"]
 
-    def validate_patch(self, target_file: str | None = None) -> dict[str, Any]:
+    def validate_patch(
+        self,
+        target_file: str | None = None,
+        failing_command: str | None = None,
+    ) -> dict[str, Any]:
+        # Replay the exact failing CI command — most accurate regardless of Dockerfile presence
+        if failing_command:
+            logger.info("Using CI command replay for validation")
+            return self._validate_by_replay(failing_command)
+
         if not os.path.exists("Dockerfile"):
             logger.info("No Dockerfile found; running pytest directly (no Docker)")
             return self._validate_direct(target_file)

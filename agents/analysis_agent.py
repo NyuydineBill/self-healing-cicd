@@ -1,3 +1,5 @@
+import re
+
 from openai import OpenAI
 
 from config.settings import get_settings
@@ -6,6 +8,42 @@ from utils.llm_client import chat_completion_with_retry
 from utils.logging import get_logger
 
 logger = get_logger("analysis_agent")
+
+# Ordered from most to least specific
+_CMD_PATTERNS = [
+    r"##\[group\]Run\s+(.+)",  # GitHub Actions step "Run <cmd>"
+    r"\[command\](.+)",  # GitHub Actions [command] full-path binary
+    r"^\+\s+(.+)",  # set -x shell trace
+]
+
+# Commands safe to replay in CI validation
+_SAFE_COMMAND_BASES = {
+    "pytest",
+    "python",
+    "python3",
+    "ruff",
+    "flake8",
+    "pylint",
+    "mypy",
+    "tsc",
+    "npx",
+    "npm",
+    "node",
+    "go",
+    "cargo",
+    "make",
+    "pip",
+    "uv",
+    "black",
+    "isort",
+}
+
+# Patterns that disqualify a command as unsafe to replay
+_UNSAFE_RE = re.compile(
+    r"\brm\b|\brmdir\b|git\s+push|docker\s+push|kubectl\s+delete"
+    r"|--force|>\s*/|&&\s*rm\b|\bsudo\b|\bdrop\b|\btruncate\b",
+    re.IGNORECASE,
+)
 
 
 class AnalysisAgent:
@@ -28,6 +66,52 @@ class AnalysisAgent:
             return result
         logger.debug("Pattern matching found no target file; trying LLM fallback")
         return self._llm_identify_file(log_text)
+
+    def extract_failing_command(self, log_text: str) -> str | None:
+        """
+        Extract the CI command that failed so ValidationAgent can replay it.
+        Returns a shell-safe command string or None if nothing reliable is found.
+        """
+        # 1. Try structured log patterns first
+        for pattern in _CMD_PATTERNS:
+            for m in re.finditer(pattern, log_text, re.MULTILINE):
+                cmd = m.group(1).strip()
+                if self._is_replayable(cmd):
+                    logger.info("Extracted failing command: %r", cmd)
+                    return cmd
+
+        # 2. Scan for known test/lint runner invocations anywhere in the log
+        for runner in (
+            "pytest",
+            "ruff check",
+            "ruff",
+            "mypy",
+            "flake8",
+            "pylint",
+            "npm test",
+            "npm run test",
+            "go test",
+            "cargo test",
+        ):
+            pattern = rf"(?:^|\s){re.escape(runner)}(\s+[^\n]*)?"
+            match = re.search(pattern, log_text, re.MULTILINE)
+            if match:
+                cmd = (runner + (match.group(1) or "")).strip()
+                if self._is_replayable(cmd):
+                    logger.info("Extracted failing command (runner scan): %r", cmd)
+                    return cmd
+
+        return None
+
+    def _is_replayable(self, cmd: str) -> bool:
+        if not cmd or len(cmd) < 3:
+            return False
+        if _UNSAFE_RE.search(cmd):
+            return False
+        # Strip full path to get the binary name
+        binary = cmd.split()[0].split("/")[-1].split("\\")[-1].lower()
+        base = binary[:-4] if binary.endswith(".exe") else binary
+        return base in _SAFE_COMMAND_BASES
 
     def _llm_identify_file(self, log_text: str) -> str | None:
         settings = get_settings()

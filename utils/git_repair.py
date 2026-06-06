@@ -26,6 +26,48 @@ class GitRepairManager:
         self.repo_path = Path.cwd()  # repo being healed, not the installed package root
         self._repo: Repo | None = None
         self._active_branches: dict[str, str] = {}
+        if self.settings.git_create_pr:
+            self._warn_if_pr_blocked()
+
+    def _warn_if_pr_blocked(self) -> None:
+        """
+        Probe the GitHub API early so users get a clear, actionable message
+        instead of a silent failure at the end of the run.
+        """
+        if not self.settings.github_owner or not self.settings.github_repo:
+            return
+        try:
+            resp = requests.get(
+                f"https://api.github.com/repos/{self.settings.github_owner}"
+                f"/{self.settings.github_repo}",
+                headers={
+                    "Authorization": f"Bearer {self.settings.github_pr_token}",
+                    "Accept": "application/vnd.github+json",
+                },
+                timeout=10,
+            )
+            if resp.status_code != 200:
+                logger.warning(
+                    "GitHub API probe failed (status=%s) — PR creation may not work",
+                    resp.status_code,
+                )
+                return
+
+            # GITHUB_TOKEN responses carry X-OAuth-Scopes; PATs carry repo/workflow scopes.
+            # An empty scope string on a GITHUB_TOKEN is normal — it has implicit scopes
+            # defined by the job's `permissions:` block.  We can't reliably detect the
+            # Actions "allow PRs" setting remotely, so emit a one-time advisory instead.
+            token = self.settings.github_pr_token or ""
+            if len(token) < 40 or token.startswith("ghp_") or token.startswith("github_pat_"):
+                return  # PAT — no restriction to warn about
+
+            logger.info(
+                "PR creation is enabled. If PRs fail with 403, go to repo "
+                "Settings → Actions → General and enable "
+                "'Allow GitHub Actions to create and approve pull requests'."
+            )
+        except Exception:  # nosec B110
+            pass  # non-critical probe; never block the main flow
 
     @property
     def repo(self) -> Repo:

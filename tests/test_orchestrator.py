@@ -31,6 +31,9 @@ class MockAnalyzer:
             return "sample_projects/project_2/test_b.py"
         return None
 
+    def extract_failing_command(self, log_text):
+        return None
+
 
 class MockReasoner:
     def diagnose_failure(self, failure_context, failure_type="unknown"):

@@ -46,9 +46,9 @@ inputs:
     required: false
     default: 'main'
   allowed-path-prefixes:
-    description: 'Comma-separated path prefixes the patcher is allowed to modify.'
+    description: 'Comma-separated path prefixes the patcher is allowed to modify. Use "auto" (default) to detect from repo structure.'
     required: false
-    default: 'app/,src/,lib/,tests/'
+    default: 'auto'
   max-failed-runs:
     description: 'Maximum number of failed workflow runs to process per execution.'
     required: false

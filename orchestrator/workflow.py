@@ -264,11 +264,13 @@ class WorkflowOrchestrator:
             processed_targets.add(dedupe_key)
 
             failure_type = categorize_failure(errors).value
+            failing_command = self.analyzer.extract_failing_command(log_text)
             repair_result = self._repair_with_retries(
                 run_id=run_id,
                 errors=errors,
                 target_file=target_file,
                 failure_type=failure_type,
+                failing_command=failing_command,
             )
             results.append(repair_result)
             failures_handled += 1
@@ -351,10 +353,12 @@ class WorkflowOrchestrator:
             processed_targets.add(dedupe_key)
 
             failure_type = categorize_failure(errors).value
+            failing_command = self.analyzer.extract_failing_command(log_text)
             logger.info(
-                "Failure detected | type=%s | file=%s | log=%s",
+                "Failure detected | type=%s | file=%s | command=%r | log=%s",
                 failure_type,
                 target_file,
+                failing_command,
                 log_path,
             )
 
@@ -363,6 +367,7 @@ class WorkflowOrchestrator:
                 errors=errors,
                 target_file=target_file,
                 failure_type=failure_type,
+                failing_command=failing_command,
             )
             results.append(repair_result)
             failures_handled += 1
@@ -414,6 +419,7 @@ class WorkflowOrchestrator:
         errors: list[str],
         target_file: str,
         failure_type: str,
+        failing_command: str | None = None,
     ) -> WorkflowResult:
         failure_context = "\n".join(errors)
         attempts: list[RepairAttempt] = []
@@ -489,7 +495,10 @@ class WorkflowOrchestrator:
                         if self.settings.backup_before_patch:
                             self.backup_manager.backup_before_attempt(target_file, run_id, attempt)
                         self.patcher.apply_patch(target_file, patch)
-                        validation = self.validator.validate_patch(target_file=target_file)
+                        validation = self.validator.validate_patch(
+                            target_file=target_file,
+                            failing_command=failing_command,
+                        )
 
             except Exception as exc:
                 logger.error(
@@ -589,7 +598,9 @@ class WorkflowOrchestrator:
                 reason=f"validation_{validation.get('status', 'unknown')}",
                 attempt=attempt,
             )
-            failure_context = self._enrich_context_for_retry(failure_context, validation)
+            failure_context = self._enrich_context_for_retry(
+                failure_context, validation, failing_command=failing_command
+            )
 
         if not self.dry_run:
             cleanup_validation_containers()
@@ -663,15 +674,22 @@ class WorkflowOrchestrator:
                     target_file=result.target_file or "",
                 )
 
-    def _enrich_context_for_retry(self, failure_context: str, validation: dict[str, Any]) -> str:
+    def _enrich_context_for_retry(
+        self,
+        failure_context: str,
+        validation: dict[str, Any],
+        failing_command: str | None = None,
+    ) -> str:
         output = validation.get("output", "")
         status = validation.get("status", "unknown")
         scope = validation.get("scope", "unknown")
+        cmd_line = f"Validation command: {failing_command}\n" if failing_command else ""
         return (
             f"{failure_context}\n\n"
             f"Previous repair attempt failed validation.\n"
             f"Validation status: {status}\n"
             f"Validation scope: {scope}\n"
+            f"{cmd_line}"
             f"Validation output:\n{output[:2000]}"
         )
 
