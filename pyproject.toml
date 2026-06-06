@@ -63,9 +63,13 @@ Issues = "https://github.com/NyuydineBill/self-healing-cicd/issues"
 
 [tool.setuptools]
 py-modules = ["main"]
+include-package-data = true
 
 [tool.setuptools.packages.find]
 exclude = ["venv*", "tests*", "sample_projects*", "scripts*"]
+
+[tool.setuptools.package-data]
+"config" = ["prompts/*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
