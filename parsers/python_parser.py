@@ -18,11 +18,16 @@ class PythonLogParser(LogParser):
     ]
 
     FILE_PATTERNS = [
+        # Python exception traceback: File "/path/to/tests/foo.py"
         r'File ".*?(sample_projects/.*?\.py)"',
         r'File ".*?(app/.*?\.py)"',
         r'File ".*?(src/.*?\.py)"',
         r'File ".*?(tests/.*?\.py)"',
         r'File ".*?(lib/.*?\.py)"',
+        # pytest FAILED line: FAILED tests/foo.py::test_bar
+        r"FAILED\s+((?:sample_projects|app|src|tests|lib)/[^\s:]+\.py)",
+        # pytest short traceback: tests/foo.py:5: AssertionError
+        r"((?:sample_projects|app|src|tests|lib)/[^\s]+\.py):\d+:",
     ]
 
     def matches(self, log_text: str) -> bool:

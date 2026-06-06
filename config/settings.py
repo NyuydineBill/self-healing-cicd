@@ -6,7 +6,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_PACKAGE_ROOT = Path(__file__).resolve().parent.parent
+# Backwards-compatible alias used in a few places
+PROJECT_ROOT = _PACKAGE_ROOT
 
 
 @dataclass
@@ -48,12 +50,13 @@ class Settings:
         default_factory=lambda: int(os.getenv("OPENAI_MAX_RETRIES", "3"))
     )
 
-    # Paths
-    logs_dir: Path = field(default_factory=lambda: PROJECT_ROOT / "logs")
-    results_dir: Path = field(default_factory=lambda: PROJECT_ROOT / "results")
-    prompts_dir: Path = field(default_factory=lambda: PROJECT_ROOT / "config" / "prompts")
+    # Paths — logs/results resolve to CWD (the repo being healed, not the installed package)
+    logs_dir: Path = field(default_factory=lambda: Path("logs"))
+    results_dir: Path = field(default_factory=lambda: Path("results"))
+    # prompts live inside the installed package
+    prompts_dir: Path = field(default_factory=lambda: _PACKAGE_ROOT / "config" / "prompts")
     failure_memory_path: Path = field(
-        default_factory=lambda: PROJECT_ROOT / "results" / "failure_memory.json"
+        default_factory=lambda: Path("results") / "failure_memory.json"
     )
 
     # Docker validation
