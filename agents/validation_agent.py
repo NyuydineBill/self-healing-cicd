@@ -27,6 +27,7 @@ class ValidationAgent:
         self.cleanup_after = settings.docker_cleanup_after_validation
         self.validate_full_repo = settings.validate_full_repo
         self.sample_projects_dir = settings.sample_projects_dir
+        self.validation_timeout = settings.validation_timeout
 
     def _validate_by_replay(self, command: str) -> dict[str, Any]:
         """Re-run the exact command that failed in CI — the most accurate validation."""
@@ -54,7 +55,9 @@ class ValidationAgent:
 
         logger.info("Replay validation: %s", " ".join(parts))
         try:
-            result = subprocess.run(parts, capture_output=True, text=True, timeout=120)
+            result = subprocess.run(
+                parts, capture_output=True, text=True, timeout=self.validation_timeout
+            )
         except FileNotFoundError as exc:
             logger.warning("Replay command not found (%s); falling back to pytest", exc)
             return self._validate_direct()
@@ -93,7 +96,7 @@ class ValidationAgent:
                 [sys.executable, "-m", "pytest", scope, "-v", "--tb=short"],
                 capture_output=True,
                 text=True,
-                timeout=120,
+                timeout=self.validation_timeout,
             )
             combined = result.stdout + result.stderr
             if result.returncode == 0:

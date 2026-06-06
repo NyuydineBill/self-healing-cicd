@@ -1,9 +1,12 @@
+import logging
 import os
 
 from parsers.base import LogParser
 from parsers.go_parser import GoLogParser
 from parsers.java_parser import JavaLogParser
 from parsers.python_parser import PythonLogParser
+
+_log = logging.getLogger("self_healing.parsers")
 
 _PARSERS: list[type[LogParser]] = [
     PythonLogParser,
@@ -27,6 +30,7 @@ def get_parser(log_text: str) -> LogParser:
         if instance.matches(log_text):
             return instance
 
+    _log.info("No parser matched log content; defaulting to PythonLogParser")
     return PythonLogParser()
 
 

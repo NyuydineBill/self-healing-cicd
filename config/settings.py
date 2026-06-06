@@ -59,6 +59,11 @@ class Settings:
         default_factory=lambda: Path("results") / "failure_memory.json"
     )
 
+    # Validation
+    validation_timeout: int = field(
+        default_factory=lambda: int(os.getenv("VALIDATION_TIMEOUT", "120"))
+    )
+
     # Docker validation
     docker_image_tag: str = field(
         default_factory=lambda: os.getenv("DOCKER_IMAGE_TAG", "self-healing-validator")

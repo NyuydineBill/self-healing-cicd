@@ -47,7 +47,7 @@ class MonitoringAgent:
             )
             return []
 
-        runs = response.json()["workflow_runs"]
+        runs = response.json().get("workflow_runs", [])
         failed_runs = []
 
         for run in runs:

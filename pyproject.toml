@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "self-healing-cicd"
-version = "0.1.10"
+version = "0.1.11"
 description = "AI-powered self-healing CI/CD framework that automatically detects, diagnoses, and repairs failing workflows"
 readme = "README.md"
 license = { text = "MIT" }

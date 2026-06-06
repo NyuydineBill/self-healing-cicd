@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 
 from openai import OpenAI
 
@@ -99,7 +100,8 @@ class AnalysisAgent:
         if primary:
             seen[primary] = None
 
-        files = list(seen.keys())
+        # Only return files that actually exist in the working tree
+        files = [f for f in seen if Path(f).is_file()]
         logger.info("Identified %d file(s) for repair: %s", len(files), files)
         return files
 

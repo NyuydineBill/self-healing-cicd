@@ -1,5 +1,7 @@
+import contextlib
 import json
 import re
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -43,10 +45,10 @@ class PatchAgent:
             p = Path(path_str)
             if not p.is_file() or path_str in context:
                 return
-            import contextlib
-
             with contextlib.suppress(OSError):
                 context[path_str] = p.read_text(encoding="utf-8")
+            if path_str not in context:
+                logger.debug("Could not read context file: %s", path_str)
 
         def _resolve_import(module: str) -> None:
             parts = module.split(".")
@@ -189,7 +191,18 @@ class PatchAgent:
 
     def apply_patch(self, file_path: str, patch_code: str) -> bool:
         cleaned = patch_code.replace("```python", "").replace("```", "").strip()
-        with open(file_path, "w", encoding="utf-8") as fh:
-            fh.write(cleaned)
+        target = Path(file_path)
+        # Atomic write: write to sibling temp file then replace, avoiding partial writes
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=target.parent,
+            prefix=".self_heal_tmp_",
+            suffix=target.suffix,
+            delete=False,
+        ) as tmp:
+            tmp.write(cleaned)
+            tmp_path = Path(tmp.name)
+        tmp_path.replace(target)
         logger.info("Applied patch to %s", file_path)
         return True

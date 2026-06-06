@@ -17,6 +17,134 @@ All five original agents (`MonitoringAgent`, `AnalysisAgent`, `ReasoningAgent`, 
 
 ---
 
+## v0.1.11 — Code Quality + Sample Projects 11–14
+
+### Code quality fixes
+
+| Module | Fix |
+|--------|-----|
+| `agents/monitoring_agent.py` | `response.json().get("workflow_runs", [])` — guard against unexpected API shape |
+| `agents/reasoning_agent.py` | Warning log when LLM returns empty diagnosis |
+| `agents/patch_agent.py` | Atomic writes in `apply_patch()` via `NamedTemporaryFile` + `Path.replace()` |
+| `agents/analysis_agent.py` | Filter non-existent paths from `extract_failed_files()` — only return files on disk |
+| `agents/validation_agent.py` | Use `self.validation_timeout` from settings (configurable via `VALIDATION_TIMEOUT`) |
+| `utils/approval.py` | Guard `input()` with `try/except EOFError` — defaults to reject on closed stdin (CI) |
+| `parsers/python_parser.py` | Broader fallback FILE_PATTERN; ordered-dict dedup in `extract_failure_context()` |
+| `parsers/__init__.py` | Log fallback parser selection at INFO level |
+| `config/settings.py` | `validation_timeout: int` field — reads `VALIDATION_TIMEOUT` env var, default 120 |
+
+### New sample projects
+
+| Project | Failure type | Description |
+|---------|-------------|-------------|
+| `project_11` | Multi-file ImportError | `app.py` exports `multiply`, test imports `product` — root cause spans two files |
+| `project_12` | Wrong exception type | `app.py` raises `RuntimeError`, test expects `ValueError` |
+| `project_13` | Off-by-one | `range(1, n)` excludes `n`; `sum_to(5)` returns 10 instead of 15 |
+| `project_14` | Type coercion TypeError | `greet` uses string concat; test passes `42` as name |
+
+### New settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VALIDATION_TIMEOUT` | `120` | Subprocess timeout (seconds) for command-replay validation |
+
+### Test count: **47**
+
+---
+
+## v0.1.10 — Multi-File Repair
+
+Patches all files involved in a failure in one atomic LLM call instead of only the single primary file.
+
+### Key changes
+
+**`agents/patch_agent.py`**
+
+- `FilePatch` dataclass: `file_path`, `new_content`
+- `_collect_context_files(primary_files)` — reads all primary files and walks their local imports to build full context
+- `generate_multi_patch(failure_context, target_files, diagnosis)` — sends combined context to LLM with multi-patch prompt; returns list of `FilePatch`
+- `_parse_multi_patch(raw, allowed)` — strips markdown, validates JSON array, filters to allowed paths
+- `apply_multi_patch(patches)` — applies all patches atomically; returns list of applied paths
+
+**`config/prompts/multi_patch.txt`** (new)
+
+Prompt asking LLM to return a JSON array of `{"file": "...", "content": "..."}` objects covering all files that need to change.
+
+**`orchestrator/workflow.py`**
+
+- `WorkflowResult.target_files: list[str]` — tracks all repaired files (not just one)
+- `_repair_with_retries()` calls `generate_multi_patch()` first; falls back to single-file `generate_patch()`
+- `_git_commit_repair()` stages all repaired files
+- `_finalize_git_for_run()` lists all repaired files in PR body
+
+**`utils/file_backup.py`**
+
+- `backup_originals(target_files, run_id)`, `restore_originals(target_files, run_id)`, `clear_run_backups_list(target_files, run_id)` — multi-file backup/restore
+
+**`utils/git_repair.py`**
+
+- `commit_repair(target_files)` — stages all files in one commit
+- `_commit_message(target_files)` — multi-file subject line
+
+### Why it matters
+
+ImportErrors, cross-module type bugs, and split source/test fixes all require changing more than one file. The single-file patcher would patch the test but leave the broken source (or vice-versa). Multi-file repair gives the LLM the full picture.
+
+---
+
+## v0.1.9 — CI Command Replay + Auto-Discovery
+
+### CI command replay validation
+
+Instead of always building Docker and running `pytest`, the validator now:
+
+1. Extracts the failing CI command from `##[group]Run`, `[command]`, or `set -x` trace in the GitHub Actions log
+2. Safety-checks the binary against an allowlist and a block-list
+3. Re-runs the exact command locally to validate the patch
+4. Falls back to Docker + `pytest` only when no replayable command is found
+
+This makes validation work for **any test runner or linter** (ruff, mypy, npm test, go test, …) without Docker.
+
+**`agents/analysis_agent.py`**
+
+- `extract_failing_command(log_text) -> str | None` — extracts the CI command that failed
+- `_is_replayable(cmd) -> bool` — safety check (binary allowlist + unsafe pattern block-list)
+- `extract_failed_files(log_text) -> list[str]` — returns all files from traceback, filtered to existing disk files
+
+**`agents/validation_agent.py`**
+
+- `_validate_by_replay(command)` — normalises binary, runs via subprocess with configurable timeout
+- `validate_patch(target_file=None, failing_command=None)` — uses replay first if command is provided
+
+### Auto-discovery of source directories
+
+`ALLOWED_PATH_PREFIXES` now defaults to **`auto`**. When set to `auto` (or left empty), the framework scans the repo for `.py/.js/.ts/.go/.rs` files and returns the top-level directories as the allowlist — no upfront configuration required.
+
+**`utils/policy.py`**
+
+- `auto_discover_prefixes(root=None) -> list[str]` — scans filesystem, returns `["src/", "app/", ...]`
+- `get_allowed_prefixes()` — calls `auto_discover_prefixes()` when setting is `auto` or empty
+
+**`utils/discovery.py`**
+
+- `discover_tests_under_prefixes()` uses `get_allowed_prefixes()` — auto-discovers instead of requiring explicit config
+- `discover_source_files(prefixes=None) -> list[str]` — finds all `.py` files under prefixes
+- `discover_all_test_targets()` falls back to `discover_source_files()` when no test files found
+
+**`action.yml`** — `allowed-path-prefixes` default changed from hardcoded list to `auto`
+
+### Source file fallback
+
+If no test files are found (project has no tests), the analysis falls back to all source files under the allowed prefixes — the framework can still attempt to fix pipeline failures that have nothing to do with tests.
+
+### New settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ALLOWED_PATH_PREFIXES` | `auto` | `auto` = scan repo; or comma-separated explicit list |
+
+---
+
 ## Update: Documentation sync (latest)
 
 Aligned `README.md` and this changelog with the current tree:

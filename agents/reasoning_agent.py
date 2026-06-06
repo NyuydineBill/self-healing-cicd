@@ -36,5 +36,8 @@ class ReasoningAgent:
         )
 
         diagnosis = response.choices[0].message.content or ""
-        logger.info("Diagnosis complete (%d chars)", len(diagnosis))
+        if not diagnosis:
+            logger.warning("LLM returned empty diagnosis for failure_type=%s", failure_type)
+        else:
+            logger.info("Diagnosis complete (%d chars)", len(diagnosis))
         return diagnosis

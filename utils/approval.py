@@ -77,7 +77,11 @@ def request_patch_approval(
     print("=" * 60)
 
     while True:
-        answer = input("Apply this patch? [y/N]: ").strip().lower()
+        try:
+            answer = input("Apply this patch? [y/N]: ").strip().lower()
+        except EOFError:
+            logger.warning("stdin closed during approval prompt — rejecting patch")
+            return False
         if answer in ("y", "yes"):
             logger.info("Patch approved by operator")
             return True

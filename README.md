@@ -84,10 +84,18 @@ OFFLINE_MODE=true python main.py
 
 ### 5. Path policy
 
-Only files under `ALLOWED_PATH_PREFIXES` can be patched. Default:
+Only files under `ALLOWED_PATH_PREFIXES` can be patched. Default is **`auto`** — the framework scans the repo and discovers source directories automatically (`src/`, `app/`, `sample_projects/`, etc.). No configuration needed for most projects.
+
+Override with an explicit comma-separated list:
 
 ```bash
-ALLOWED_PATH_PREFIXES=sample_projects/,app/,src/,lib/,tests/
+ALLOWED_PATH_PREFIXES=my_app/,tests/
+```
+
+Or disable auto-discovery and patch any file:
+
+```bash
+ALLOWED_PATH_PREFIXES=.
 ```
 
 Example real app code lives under `app/` (`app/calculator.py`, `app/tests/`).
@@ -153,7 +161,7 @@ flowchart TB
         ANA[AnalysisAgent<br/>parsers/]
         REA[ReasoningAgent<br/>LLM diagnosis]
         PAT[PatchAgent<br/>LLM patch]
-        VAL[ValidationAgent<br/>Docker pytest]
+        VAL[ValidationAgent<br/>command replay / Docker]
     end
 
     subgraph support [utils]
@@ -180,13 +188,13 @@ flowchart TB
 
 **Control flow (one failure):**
 
-1. **Detect** — list failed workflow runs; download log ZIP  
-2. **Analyze** — extract errors and target file from logs  
-3. **Diagnose** — LLM explains root cause (prompt template)  
-4. **Patch** — LLM rewrites target file using diagnosis  
-5. **Validate** — Docker build + scoped `pytest`  
-6. **Retry** — enrich context and repeat up to `MAX_RETRY_ATTEMPTS`  
-7. **Publish** — optional git branch, commit, pull request  
+1. **Detect** — list failed workflow runs; download log ZIP
+2. **Analyze** — extract errors, extract failing CI command, identify all involved files
+3. **Diagnose** — LLM explains root cause (prompt template)
+4. **Patch** — LLM rewrites all involved files using diagnosis (multi-file repair)
+5. **Validate** — replay the exact failing CI command; falls back to Docker + `pytest`
+6. **Retry** — enrich context and repeat up to `MAX_RETRY_ATTEMPTS`
+7. **Publish** — optional git branch, commit, pull request
 
 | Package | Role |
 |---------|------|
@@ -195,7 +203,7 @@ flowchart TB
 | `config/` | Settings, prompt templates (`config/prompts/`), startup checks |
 | `parsers/` | Pluggable log parsers (Python, Java, Go) |
 | `utils/` | Logging, backups, git, secrets masking, LLM retries |
-| `tests/` | Framework unit tests (`pytest tests/` — 45 tests) |
+| `tests/` | Framework unit tests (`pytest tests/` — 47 tests) |
 | `results/` | Runtime JSON metrics and repair history (gitignored) |
 | `logs/` | Downloaded workflow ZIPs and extracted logs (gitignored) |
 
@@ -250,9 +258,9 @@ The framework supports three usage modes. Pick one based on how much automation 
 
 **How:**
 
-1. Configure `.env` with GitHub + OpenAI credentials.  
-2. Run `DRY_RUN=true python main.py` to see diagnosis and generated patches **without** changing files or running Docker.  
-3. Inspect `results/` and console logs for metrics and failure memory.  
+1. Configure `.env` with GitHub + OpenAI credentials.
+2. Run `DRY_RUN=true python main.py` to see diagnosis and generated patches **without** changing files or running Docker.
+3. Inspect `results/` and console logs for metrics and failure memory.
 4. Run `pytest tests/` to verify framework behavior without external services.
 
 **Outcome:** Demonstrates multi-agent coordination and persistence; no risk to the repository.
@@ -263,10 +271,10 @@ The framework supports three usage modes. Pick one based on how much automation 
 
 **How:**
 
-1. Ensure Docker is running.  
-2. Set `DRY_RUN=false`, `GIT_ENABLED=false` (or `true` for PR flow).  
-3. Run `python main.py` after a GitHub Actions failure.  
-4. Review patched files locally; run `pytest` manually if desired.  
+1. Ensure Docker is running.
+2. Set `DRY_RUN=false`, `GIT_ENABLED=false` (or `true` for PR flow).
+3. Run `python main.py` after a GitHub Actions failure.
+4. Review patched files locally; run `pytest` manually if desired.
 5. Commit or discard changes yourself.
 
 **Outcome:** Faster than manual debugging; human stays in the loop for merge decisions.
@@ -277,10 +285,10 @@ The framework supports three usage modes. Pick one based on how much automation 
 
 **How:**
 
-1. Add repository secret `OPENAI_API_KEY`.  
-2. Keep [.github/workflows/self-heal.yml](.github/workflows/self-heal.yml) enabled (triggers on failed **Test Pipeline**).  
-3. Set `GIT_ENABLED=true` in the workflow (already configured there).  
-4. On failure: Actions runs `python main.py` → validate → push branch → open PR.  
+1. Add repository secret `OPENAI_API_KEY`.
+2. Keep [.github/workflows/self-heal.yml](.github/workflows/self-heal.yml) enabled (triggers on failed **Test Pipeline**).
+3. Set `GIT_ENABLED=true` in the workflow (already configured there).
+4. On failure: Actions runs `python main.py` → validate → push branch → open PR.
 5. A human reviews and merges the PR.
 
 **Outcome:** Closest to “production”; still requires human PR review before `main` changes.
@@ -294,7 +302,7 @@ The framework supports three usage modes. Pick one based on how much automation 
 | 3 | Run Mode 3 once on GitHub with `OPENAI_API_KEY` secret and a deliberate test failure |
 | 4 | State limitations honestly (see below) — reviewers expect this |
 
-Ten demos live under `sample_projects/` (assertion, import, syntax, logic, module, attribute, name, index, type, zero-division). By default they **pass**; break one with `./scripts/break-sample.sh N` before pushing to test self-heal. See [sample_projects/README.md](sample_projects/README.md).
+Fourteen demos live under `sample_projects/` (assertion, import, syntax, logic, module, attribute, name, index, type, zero-division, multi-file import, wrong exception, off-by-one, type coercion). By default they **pass**; break one with `./scripts/break-sample.sh N` before pushing to test self-heal. See [sample_projects/README.md](sample_projects/README.md).
 
 ---
 
@@ -313,7 +321,8 @@ Copy [.env.example](.env.example). Key settings:
 | `REQUIRE_APPROVAL` | No | `true` = prompt before apply (local) |
 | `AUTO_APPROVE_PATCHES` | No | `true` = skip prompt (CI default) |
 | `OFFLINE_MODE` | No | `true` = use `logs/extracted/` only |
-| `ALLOWED_PATH_PREFIXES` | No | Comma-separated path allowlist |
+| `ALLOWED_PATH_PREFIXES` | No | `auto` (default) or comma-separated path allowlist |
+| `VALIDATION_TIMEOUT` | No | Seconds for command-replay subprocess (default: 120) |
 
 ## Git integration
 
@@ -350,14 +359,14 @@ This section summarizes what the framework **does not** guarantee. Useful for th
 
 ### Scope and correctness
 
-- **Python-centric validation** — Log parsers cover Python, Java, and Go, but Docker validation still runs `pytest`. JVM/Go repos may need custom validation beyond this framework.
+- **Python-centric validation** — Log parsers cover Python, Java, and Go. Validation replays the exact failing CI command, so any test runner works. Docker + `pytest` is the fallback when no command is extracted.
 - **LLM unpredictability** — Patches can be wrong, incomplete, or stylistically odd even when validation passes (tests may not cover the real failure).
 - **Single-repo, single-provider** — GitHub Actions only; no GitLab, Jenkins, or CircleCI.
 - **No semantic code understanding** — Repairs are text-based (LLM + file replace), not AST-aware refactors.
 
 ### Operations
 
-- **Docker required** for live validation — Not optional in non-dry-run mode.
+- **Docker as fallback** — Validation first replays the failing CI command directly. Docker + `pytest` is only used when no replayable command is found.
 - **API costs** — Every diagnosis and patch calls OpenAI; retries multiply usage.
 - **No guaranteed PR merge** — Opens a PR; humans must review. No auto-merge.
 - **Git state assumptions** — Git integration expects a clean enough repo; complex multi-branch workflows may need manual conflict resolution.
@@ -376,25 +385,28 @@ This section summarizes what the framework **does not** guarantee. Useful for th
 
 ### Implemented product safeguards
 
-- Human approval before apply (`REQUIRE_APPROVAL` / diff prompt)  
-- Path allowlist (`ALLOWED_PATH_PREFIXES`)  
-- Self-heal workflow excluded from triggers (loop guard)  
-- GitHub API retry on rate limits  
-- Pre-flight check (`python main.py check`)  
+- Human approval before apply (`REQUIRE_APPROVAL` / diff prompt)
+- Path allowlist (`ALLOWED_PATH_PREFIXES`)
+- Self-heal workflow excluded from triggers (loop guard)
+- GitHub API retry on rate limits
+- Pre-flight check (`python main.py check`)
 
 ### Remaining gaps for enterprise adoption
 
-- **Distribution** — No published pip package or marketplace GitHub Action yet; adopters vendor this repo today (see [Adoption](#adoption-today-vs-planned))  
-- **Validation stack** — Docker + `pytest` only; Java/Go parsers help find targets but validation is still Python-centric  
-- **Staging / E2E** — No automated integration suite against live GitHub + Docker in CI  
-- **Auto-merge** — PRs are opened for human review; no optional auto-merge policy  
-- **Multi-CI** — GitHub Actions only (no GitLab, Jenkins, CircleCI)  
+- **Distribution** — No published pip package or marketplace GitHub Action yet; adopters vendor this repo today (see [Adoption](#adoption-today-vs-planned))
+- **Validation stack** — Docker + `pytest` only; Java/Go parsers help find targets but validation is still Python-centric
+- **Staging / E2E** — No automated integration suite against live GitHub + Docker in CI
+- **Auto-merge** — PRs are opened for human review; no optional auto-merge policy
+- **Multi-CI** — GitHub Actions only (no GitLab, Jenkins, CircleCI)
 
 ### Already implemented (not gaps)
 
-- Pluggable log parsers: `parsers/` (Python, Java, Go) — `LOG_PARSER_LANGUAGE` to force  
-- Web approval UI: `WEB_APPROVAL_ENABLED`, `python main.py approve-ui`  
-- Terminal approval, path allowlist, offline mode, git branch + PR, pre-flight `check`  
+- Pluggable log parsers: `parsers/` (Python, Java, Go) — `LOG_PARSER_LANGUAGE` to force
+- Web approval UI: `WEB_APPROVAL_ENABLED`, `python main.py approve-ui`
+- Terminal approval, path allowlist, offline mode, git branch + PR, pre-flight `check`
+- CI command replay validation — replays the exact failing command instead of always requiring Docker
+- Auto-discovery of source directories — `ALLOWED_PATH_PREFIXES=auto` (default); no upfront config needed
+- Multi-file repair — LLM patches all files involved in a failure in one atomic step
 
 ---
 
