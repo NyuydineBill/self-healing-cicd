@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "self-healing-cicd"
-version = "0.1.0"
+version = "0.1.1"
 description = "AI-powered self-healing CI/CD framework that automatically detects, diagnoses, and repairs failing workflows"
 readme = "README.md"
 license = { text = "MIT" }
@@ -60,6 +60,9 @@ self-heal = "main:main"
 [project.urls]
 Repository = "https://github.com/NyuydineBill/self-healing-cicd"
 Issues = "https://github.com/NyuydineBill/self-healing-cicd/issues"
+
+[tool.setuptools]
+py-modules = ["main"]
 
 [tool.setuptools.packages.find]
 exclude = ["venv*", "tests*", "sample_projects*", "scripts*"]
