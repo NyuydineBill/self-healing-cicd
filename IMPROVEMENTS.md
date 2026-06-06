@@ -272,7 +272,7 @@ Added a GitHub composite action so any repository can consume the self-healer wi
 | `git-enabled` | `true` | Commit repairs and open PRs |
 | `git-create-pr` | `true` | Open a PR after repair |
 | `git-base-branch` | `main` | PR target branch |
-| `allowed-path-prefixes` | `app/,src/,lib/,tests/` | Files the patcher may touch |
+| `allowed-path-prefixes` | `auto` | Files the patcher may touch (auto = scan repo) |
 | `max-failed-runs` | `5` | Max runs to process |
 
 CI-safe defaults are set automatically: `REQUIRE_APPROVAL=false`, `AUTO_APPROVE_PATCHES=true`, `WEB_APPROVAL_ENABLED=false`.
@@ -307,6 +307,99 @@ git push origin v0.x.x
 
 ---
 
+---
+
+## 21. CI Command Replay Validation — v0.1.9
+
+**Files:** [agents/analysis_agent.py](agents/analysis_agent.py), [agents/validation_agent.py](agents/validation_agent.py), [config/settings.py](config/settings.py)
+
+Instead of always building Docker and running `pytest`, the validator now:
+
+1. Extracts the failing CI command from `##[group]Run`, `[command]`, or `set -x` trace in the GitHub Actions log (`extract_failing_command()`).
+2. Safety-checks the binary against an allowlist and an unsafe-pattern block-list (`_is_replayable()`).
+3. Re-runs the exact command locally to validate the patch (`_validate_by_replay()`).
+4. Falls back to Docker + `pytest` only when no replayable command is found.
+
+New setting: `VALIDATION_TIMEOUT` (default 120 s) — configurable subprocess timeout for the replay.
+
+**Why it matters:** Validation previously required Docker and was tied to `pytest`. Command replay works for any test runner or linter (ruff, mypy, npm test, go test, cargo test) without Docker. Teams that don't use Docker at all can now use the framework.
+
+---
+
+## 22. Auto-Discovery of Source Directories — v0.1.9
+
+**Files:** [utils/policy.py](utils/policy.py), [utils/discovery.py](utils/discovery.py), [action.yml](action.yml)
+
+`ALLOWED_PATH_PREFIXES` now defaults to **`auto`**. When set to `auto` (or left empty), `auto_discover_prefixes()` scans the repo for `.py/.js/.ts/.go/.rs` files and returns the unique top-level directories as the allowlist — no manual configuration required.
+
+`discover_all_test_targets()` falls back to `discover_source_files()` when no test files are found, so projects without a `tests/` folder are still repairable.
+
+The `action.yml` `allowed-path-prefixes` input default was updated from a hardcoded list to `auto`.
+
+**Why it matters:** New users had to know the exact folder layout before setting `ALLOWED_PATH_PREFIXES`. Auto-discovery removes that friction entirely — the framework figures it out.
+
+---
+
+## 23. Multi-File Repair — v0.1.10
+
+**Files:** [agents/patch_agent.py](agents/patch_agent.py), [config/prompts/multi_patch.txt](config/prompts/multi_patch.txt), [orchestrator/workflow.py](orchestrator/workflow.py), [utils/file_backup.py](utils/file_backup.py), [utils/git_repair.py](utils/git_repair.py)
+
+The patcher now repairs **all files involved in a failure** in one atomic LLM call instead of only the single primary file.
+
+Key additions:
+
+| Component | Purpose |
+|-----------|---------|
+| `FilePatch` dataclass | Holds `file_path` + `new_content` for one file |
+| `_collect_context_files()` | Reads primary files and walks their local imports to build full context |
+| `generate_multi_patch()` | Sends combined context to LLM; returns `list[FilePatch]` |
+| `_parse_multi_patch()` | Strips markdown fences, validates JSON array, filters to allowed paths |
+| `apply_multi_patch()` | Applies all patches atomically via `NamedTemporaryFile` + `Path.replace()` |
+| `config/prompts/multi_patch.txt` | Prompt asking LLM for `[{"file": "...", "content": "..."}]` |
+
+`WorkflowResult.target_files: list[str]` tracks all repaired files. The git commit and PR body list every file changed.
+
+Multi-file backup/restore (`backup_originals`, `restore_originals`, `clear_run_backups_list`) added to `utils/file_backup.py`.
+
+**Why it matters:** ImportErrors, cross-module type bugs, and split source/test fixes all require changing more than one file. The single-file patcher would patch the test but leave the broken source. Multi-file repair gives the LLM the full picture.
+
+---
+
+## 24. Sample Projects 11–14 — v0.1.11
+
+**Files:** [sample_projects/project_11/](sample_projects/project_11/), [project_12/](sample_projects/project_12/), [project_13/](sample_projects/project_13/), [project_14/](sample_projects/project_14/)
+
+Four new intentionally-failing demo scenarios added to exercise edge cases the original ten projects did not cover:
+
+| Project | Failure | Exercises |
+|---------|---------|-----------|
+| `project_11` | Multi-file ImportError — `app.py` exports `multiply`, test imports `product` | Multi-file repair path |
+| `project_12` | Wrong exception type — `app.py` raises `RuntimeError`, test expects `ValueError` | Exception mismatch diagnosis |
+| `project_13` | Off-by-one — `range(1, n)` excludes `n`; `sum_to(5)` returns 10 instead of 15 | Subtle boundary bug |
+| `project_14` | Type coercion TypeError — `greet` uses string concat, test passes `42` as name | Source vs. test fix decision |
+
+---
+
+## 25. Reliability Hardening — v0.1.11
+
+**Files:** multiple agents and utilities
+
+Small targeted fixes that prevent silent failures in production:
+
+| Module | Fix | Risk mitigated |
+|--------|-----|---------------|
+| `agents/monitoring_agent.py` | `.get("workflow_runs", [])` | `KeyError` crash on unexpected GitHub API shape |
+| `agents/reasoning_agent.py` | Warning log when LLM returns empty string | Silent empty-diagnosis producing nonsense patches |
+| `agents/patch_agent.py` | Atomic write: `NamedTemporaryFile` + `Path.replace()` | Partial file corruption on interrupted write |
+| `agents/analysis_agent.py` | Filter paths through `Path(f).is_file()` | Passing non-existent paths to LLM context/repair |
+| `agents/validation_agent.py` | Uses `self.validation_timeout` from settings | Hardcoded 120 s could not be tuned for slow runners |
+| `utils/approval.py` | `try/except EOFError` around `input()` | CI crash when stdin is closed |
+| `parsers/python_parser.py` | Broader fallback `FILE_PATTERN`; ordered-dict dedup | Missed file references; duplicate entries in context |
+| `parsers/__init__.py` | INFO log on fallback parser selection | Silent parser selection made debugging harder |
+| `config/settings.py` | `validation_timeout` field (`VALIDATION_TIMEOUT` env) | No way to tune replay timeout without code change |
+
+---
+
 ## Summary Table
 
 | # | What | File(s) | Category |
@@ -331,3 +424,8 @@ git push origin v0.x.x
 | 18 | Typing modernisation (104 ruff UP/F fixes) | all modules | Code quality |
 | 19 | GitHub Action | `action.yml` | Distribution |
 | 20 | Automated PyPI + GitHub Release pipeline | `.github/workflows/publish.yml` | Distribution |
+| 21 | CI command replay validation | `agents/analysis_agent.py`, `agents/validation_agent.py` | Validation |
+| 22 | Auto-discovery of source directories | `utils/policy.py`, `utils/discovery.py` | Usability |
+| 23 | Multi-file repair | `agents/patch_agent.py`, `config/prompts/multi_patch.txt` | Core capability |
+| 24 | Sample projects 11–14 (edge case demos) | `sample_projects/project_11-14/` | Testing |
+| 25 | Reliability hardening (9 targeted fixes) | agents, parsers, utils | Reliability |
