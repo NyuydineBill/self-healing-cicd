@@ -139,8 +139,14 @@ def run_orchestrator(run_id: str) -> tuple[bool, int, float, str]:
         "LOG_LEVEL": "INFO",
     })
 
-    # Point orchestrator at only this run by temporarily removing other dirs
-    # (offline mode picks the most recent dir — we isolate by using a unique run_id)
+    # Isolate: temporarily rename every other extracted run directory so the
+    # orchestrator only sees the one log we created for this experiment.
+    stashed: list[tuple[Path, Path]] = []
+    for d in LOGS_EXTRACTED.iterdir():
+        if d.is_dir() and d.name != run_id:
+            hidden = d.with_name(f"_stashed_{d.name}")
+            d.rename(hidden)
+            stashed.append((hidden, d))
 
     start = time.monotonic()
     result = subprocess.run(
@@ -152,6 +158,10 @@ def run_orchestrator(run_id: str) -> tuple[bool, int, float, str]:
         timeout=300,
     )
     elapsed = time.monotonic() - start
+
+    # Restore stashed directories
+    for hidden, original in stashed:
+        hidden.rename(original)
 
     # Primary: parse the result JSON written by the orchestrator
     for f in sorted(RESULTS_DIR.glob(f"run_{run_id}_*.json"), reverse=True):

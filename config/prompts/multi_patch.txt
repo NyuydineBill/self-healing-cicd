@@ -21,4 +21,4 @@ Rules:
 4. Return valid JSON only — no markdown fences, no explanation.
 
 Example:
-[{"file":"app/calculator.py","content":"def add(a, b):\n    return a + b\n"},{"file":"tests/test_calc.py","content":"from app.calculator import add\n\ndef test_add():\n    assert add(2, 2) == 4\n"}]
+[{{"file":"app/calculator.py","content":"def add(a, b):\n    return a + b\n"}},{{"file":"tests/test_calc.py","content":"from app.calculator import add\n\ndef test_add():\n    assert add(2, 2) == 4\n"}}]
