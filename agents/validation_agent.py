@@ -50,8 +50,9 @@ class ValidationAgent:
         if binary in ("python", "python3"):
             parts[0] = sys.executable
         elif binary == "pytest":
-            # Ensure we use the venv-local pytest
-            parts = [sys.executable, "-m", "pytest"] + parts[1:]
+            # Ensure we use the venv-local pytest; --no-cov avoids coverage
+            # fail_under thresholds when running scoped (single-project) validation
+            parts = [sys.executable, "-m", "pytest", "--no-cov"] + parts[1:]
 
         logger.info("Replay validation: %s", " ".join(parts))
         try:
@@ -93,7 +94,7 @@ class ValidationAgent:
 
         try:
             result = subprocess.run(
-                [sys.executable, "-m", "pytest", scope, "-v", "--tb=short"],
+                [sys.executable, "-m", "pytest", "--no-cov", scope, "-v", "--tb=short"],
                 capture_output=True,
                 text=True,
                 timeout=self.validation_timeout,

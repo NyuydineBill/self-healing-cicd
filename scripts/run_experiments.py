@@ -85,12 +85,17 @@ def reset_projects() -> None:
 def capture_pytest_failure(n: int) -> str | None:
     """Run pytest against the broken project and return the output."""
     result = run(
-        ["python", "-m", "pytest", f"sample_projects/project_{n}/", "-v", "--tb=short", "--no-header"],
+        [
+            "python", "-m", "pytest",
+            f"sample_projects/project_{n}/",
+            "-v", "--tb=short", "--no-header", "--no-cov",
+        ],
         capture=True,
     )
     # Failure is expected (returncode != 0)
     output = result.stdout + result.stderr
-    if "passed" in output and "failed" not in output and "error" not in output.lower():
+    # Project is broken if pytest reports FAILED or an error (not just coverage fail)
+    if "FAILED" not in output and "ERROR" not in output and "Error" not in output:
         print(f"  WARNING: project_{n} appears to be passing — check break step.")
         return None
     return output
@@ -148,32 +153,33 @@ def run_orchestrator(run_id: str) -> tuple[bool, int, float, str]:
     )
     elapsed = time.monotonic() - start
 
-    output = result.stdout + result.stderr
-    success = "repaired" in output and "repair_success=True" in output
-    if not success and result.returncode == 0:
-        # Check results dir for the run file
-        for f in sorted(RESULTS_DIR.glob(f"run_{run_id}_*.json"), reverse=True):
-            try:
-                data = json.loads(f.read_text())
-                if data.get("repair_success"):
-                    success = True
-                attempts_list = data.get("attempts", [])
-                attempts = len(attempts_list)
-                status = data.get("status", "unknown")
-                return success, attempts, elapsed, status
-            except Exception:  # nosec B110
-                pass
+    # Primary: parse the result JSON written by the orchestrator
+    for f in sorted(RESULTS_DIR.glob(f"run_{run_id}_*.json"), reverse=True):
+        try:
+            data = json.loads(f.read_text())
+            success = bool(data.get("repair_success"))
+            attempts = len(data.get("attempts", [])) or 1
+            status = data.get("status", "unknown")
+            return success, attempts, elapsed, status
+        except Exception:  # nosec B110
+            pass
 
-    # Parse from output lines
-    attempts = output.count("Attempt ")
+    # Fallback: scan captured output
+    output = result.stdout + result.stderr
+    success = "| repaired |" in output and "success=True" in output
+    attempts = max(output.count("Attempt "), 1)
     status = "repaired" if success else "repair_failed"
-    return success, max(attempts, 1), elapsed, status
+    return success, attempts, elapsed, status
 
 
 def verify_repair(n: int) -> bool:
     """Run pytest to confirm the project passes after repair."""
     result = run(
-        ["python", "-m", "pytest", f"sample_projects/project_{n}/", "-v", "--no-header", "-q"],
+        [
+            "python", "-m", "pytest",
+            f"sample_projects/project_{n}/",
+            "--no-cov", "-q", "--no-header",
+        ],
         capture=True,
     )
     return result.returncode == 0
