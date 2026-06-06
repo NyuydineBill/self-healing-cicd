@@ -21,7 +21,7 @@ def git_settings(monkeypatch, tmp_path):
 def test_commit_message_includes_signed_off_by(git_settings):
     manager = GitRepairManager()
     msg = manager._commit_message(
-        target_file="app/tests/test_x.py",
+        target_files=["app/tests/test_x.py"],
         run_id=99,
         failure_type="assertion_error",
         attempt=1,
@@ -37,7 +37,7 @@ def test_commit_message_omits_sign_off_when_disabled(git_settings, monkeypatch):
     settings_module._settings = None
     manager = GitRepairManager()
     msg = manager._commit_message(
-        target_file="f.py",
+        target_files=["f.py"],
         run_id=1,
         failure_type="unknown",
         attempt=1,

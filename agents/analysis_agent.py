@@ -67,6 +67,42 @@ class AnalysisAgent:
         logger.debug("Pattern matching found no target file; trying LLM fallback")
         return self._llm_identify_file(log_text)
 
+    def extract_failed_files(self, log_text: str) -> list[str]:
+        """
+        Return every file involved in the failure, not just the primary one.
+        Includes imported modules mentioned in the traceback so the LLM can
+        see — and fix — the root cause even when it lives in a different file.
+        """
+        seen: dict[str, None] = {}  # ordered deduplication
+
+        # 1. All File "..." paths in the traceback
+        for m in re.finditer(r'File\s+"([^"]+\.py)"', log_text):
+            path = m.group(1)
+            # Normalise absolute paths to relative if possible
+            for prefix in ("./", "/"):
+                if path.startswith(prefix):
+                    path = path[len(prefix) :]
+            # Only keep paths that look like repo-relative (no leading /usr, /opt …)
+            if not path.startswith("/") and "/" in path:
+                seen[path] = None
+
+        # 2. FAILED test lines (pytest short form)
+        for m in re.finditer(r"FAILED\s+([\w./\\-]+\.py)", log_text):
+            seen[m.group(1)] = None
+
+        # 3. ImportError / ModuleNotFoundError — extract the module's file path
+        for m in re.finditer(r"(?:ImportError|ModuleNotFoundError)[^\n]*\(([^)]+\.py)\)", log_text):
+            seen[m.group(1)] = None
+
+        # 4. Always include the single primary file (LLM fallback) as a safety net
+        primary = self.extract_failed_file(log_text)
+        if primary:
+            seen[primary] = None
+
+        files = list(seen.keys())
+        logger.info("Identified %d file(s) for repair: %s", len(files), files)
+        return files
+
     def extract_failing_command(self, log_text: str) -> str | None:
         """
         Extract the CI command that failed so ValidationAgent can replay it.

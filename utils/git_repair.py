@@ -108,19 +108,27 @@ class GitRepairManager:
     def _commit_message(
         self,
         *,
-        target_file: str,
+        target_files: list[str],
         run_id: int | str,
         failure_type: str,
         attempt: int,
     ) -> str:
         """Build commit message; include DCO Signed-off-by when enabled."""
+        subject = (
+            f"fix(self-heal): repair {target_files[0]}"
+            if len(target_files) == 1
+            else f"fix(self-heal): repair {len(target_files)} files"
+        )
         lines = [
-            f"fix(self-heal): repair {target_file}",
+            subject,
             "",
             f"Run: {run_id}",
             f"Failure type: {failure_type}",
             f"Attempt: {attempt}",
         ]
+        if len(target_files) > 1:
+            lines.append("")
+            lines.extend(f"  - {f}" for f in target_files)
         if self.settings.git_sign_off:
             lines.extend(
                 [
@@ -135,24 +143,26 @@ class GitRepairManager:
         self,
         *,
         run_id: int | str,
-        target_file: str,
+        target_files: list[str],
         failure_type: str,
         attempt: int,
     ) -> str:
-        """Stage and commit a validated repair."""
+        """Stage and commit a validated multi-file repair."""
         branch = self.begin_run(run_id)
         repo = self.repo
 
-        repo.git.add(target_file)
+        for f in target_files:
+            repo.git.add(f)
+
         message = self._commit_message(
-            target_file=target_file,
+            target_files=target_files,
             run_id=run_id,
             failure_type=failure_type,
             attempt=attempt,
         )
 
         if not repo.index.diff("HEAD") and not repo.untracked_files:
-            logger.warning("No changes to commit for %s", target_file)
+            logger.warning("No changes to commit for %s", target_files)
             return branch
 
         author = Actor(
@@ -165,9 +175,10 @@ class GitRepairManager:
             committer=author,
         )
         logger.info(
-            "Committed repair on %s (%s)",
+            "Committed repair on %s (%s) — %d file(s)",
             branch,
             commit.hexsha[:8],
+            len(target_files),
         )
         return branch
 

@@ -59,3 +59,25 @@ class FileBackupManager:
         for path in run_dir.glob(f"{safe_prefix}.*.bak"):
             path.unlink(missing_ok=True)
             logger.debug("Removed backup %s", path)
+
+    # ------------------------------------------------------------------
+    # List-level helpers for multi-file repair
+    # ------------------------------------------------------------------
+
+    def backup_originals(self, target_files: list[str], run_id: int | str) -> None:
+        for f in target_files:
+            self.backup_original(f, run_id)
+
+    def backup_before_attempts(
+        self, target_files: list[str], run_id: int | str, attempt: int
+    ) -> None:
+        for f in target_files:
+            self.backup_before_attempt(f, run_id, attempt)
+
+    def restore_originals(self, target_files: list[str], run_id: int | str) -> None:
+        for f in target_files:
+            self.restore_original(f, run_id)
+
+    def clear_run_backups_list(self, target_files: list[str], run_id: int | str) -> None:
+        for f in target_files:
+            self.clear_run_backups(f, run_id)

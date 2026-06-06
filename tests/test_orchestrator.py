@@ -34,6 +34,10 @@ class MockAnalyzer:
     def extract_failing_command(self, log_text):
         return None
 
+    def extract_failed_files(self, log_text):
+        primary = self.extract_failed_file(log_text)
+        return [primary] if primary else []
+
 
 class MockReasoner:
     def diagnose_failure(self, failure_context, failure_type="unknown"):
@@ -47,9 +51,17 @@ class MockPatcher:
     def apply_patch(self, file_path, patch_code):
         return True
 
+    def generate_multi_patch(self, failure_context, target_files, diagnosis=""):
+        from agents.patch_agent import FilePatch
+
+        return [FilePatch(file_path=target_files[0], new_content=f"# patched {target_files[0]}")]
+
+    def apply_multi_patch(self, patches):
+        return [p.file_path for p in patches]
+
 
 class MockValidator:
-    def validate_patch(self, target_file=None):
+    def validate_patch(self, target_file=None, failing_command=None):
         return {"status": "success", "output": "ok", "scope": target_file}
 
 
@@ -136,8 +148,11 @@ def test_no_failures_returns_empty_batch(mock_iter, mock_save, orchestrator):
 def test_dry_run_completes_without_apply(mock_iter, mock_save, orchestrator):
     mock_save.return_value = "/tmp/logs"
     mock_iter.return_value = [("/tmp/a.log", "ERROR_A project_1")]
-    orchestrator.patcher = MagicMock(spec=["generate_patch", "apply_patch"])
+    orchestrator.patcher = MagicMock(
+        spec=["generate_patch", "apply_patch", "generate_multi_patch", "apply_multi_patch"]
+    )
     orchestrator.patcher.generate_patch.return_value = "# patch"
+    orchestrator.patcher.generate_multi_patch.return_value = []  # force fallback to single-patch
     orchestrator.reasoner = MagicMock()
     orchestrator.reasoner.diagnose_failure.return_value = "diag"
 

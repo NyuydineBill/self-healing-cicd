@@ -50,7 +50,8 @@ class WorkflowResult:
     status: str = "no_action"
     message: str = ""
     failure_type: str | None = None
-    target_file: str | None = None
+    target_file: str | None = None  # primary failing file (backwards compat)
+    target_files: list[str] = field(default_factory=list)  # all files touched
     attempts: list[RepairAttempt] = field(default_factory=list)
     repair_success: bool = False
     git_info: dict[str, Any] | None = None
@@ -265,10 +266,14 @@ class WorkflowOrchestrator:
 
             failure_type = categorize_failure(errors).value
             failing_command = self.analyzer.extract_failing_command(log_text)
+            target_files = self.analyzer.extract_failed_files(log_text)
+            if target_file not in target_files:
+                target_files.insert(0, target_file)
             repair_result = self._repair_with_retries(
                 run_id=run_id,
                 errors=errors,
                 target_file=target_file,
+                target_files=target_files,
                 failure_type=failure_type,
                 failing_command=failing_command,
             )
@@ -354,10 +359,13 @@ class WorkflowOrchestrator:
 
             failure_type = categorize_failure(errors).value
             failing_command = self.analyzer.extract_failing_command(log_text)
+            target_files = self.analyzer.extract_failed_files(log_text)
+            if target_file not in target_files:
+                target_files.insert(0, target_file)
             logger.info(
-                "Failure detected | type=%s | file=%s | command=%r | log=%s",
+                "Failure detected | type=%s | files=%s | command=%r | log=%s",
                 failure_type,
-                target_file,
+                target_files,
                 failing_command,
                 log_path,
             )
@@ -366,6 +374,7 @@ class WorkflowOrchestrator:
                 run_id=run_id,
                 errors=errors,
                 target_file=target_file,
+                target_files=target_files,
                 failure_type=failure_type,
                 failing_command=failing_command,
             )
@@ -418,61 +427,85 @@ class WorkflowOrchestrator:
         run_id: int | str,
         errors: list[str],
         target_file: str,
+        target_files: list[str] | None = None,
         failure_type: str,
         failing_command: str | None = None,
     ) -> WorkflowResult:
         failure_context = "\n".join(errors)
         attempts: list[RepairAttempt] = []
+        all_files = target_files or [target_file]
 
         if self.settings.backup_before_patch and not self.dry_run:
-            self.backup_manager.backup_original(target_file, run_id)
+            self.backup_manager.backup_originals(all_files, run_id)
 
         for attempt in range(1, self.max_retries + 1):
             logger.info(
-                "Repair attempt %d/%d for %s",
+                "Repair attempt %d/%d | primary=%s | files=%s",
                 attempt,
                 self.max_retries,
                 target_file,
+                all_files,
             )
 
             diagnosis = ""
             patch = ""
+            applied_files: list[str] = []
 
             try:
                 diagnosis = self.reasoner.diagnose_failure(
                     failure_context,
                     failure_type=failure_type,
                 )
-                logger.debug(
-                    "Diagnosis received (%d chars)",
-                    len(diagnosis) if diagnosis else 0,
-                )
-
-                patch = self.patcher.generate_patch(
-                    failure_context,
-                    target_file=target_file,
-                    diagnosis=diagnosis,
-                )
-
-                logger.debug(
-                    "Generated patch: %s",
-                    safe_patch_summary(patch, self.settings.log_patch_preview_chars),
-                )
+                logger.debug("Diagnosis received (%d chars)", len(diagnosis) if diagnosis else 0)
 
                 if self.dry_run:
+                    # Dry-run: generate patch for primary file only (no writes)
+                    patch = self.patcher.generate_patch(
+                        failure_context,
+                        target_file=target_file,
+                        diagnosis=diagnosis,
+                    )
                     logger.info(
-                        "[DRY_RUN] Would apply patch to %s — %s",
-                        target_file,
+                        "[DRY_RUN] Would patch %s — %s",
+                        all_files,
                         safe_patch_summary(patch),
                     )
                     validation = {
                         "status": "dry_run",
-                        "output": "Patch not applied; Docker validation skipped.",
+                        "output": "Patch not applied; validation skipped.",
                         "category": None,
                     }
                 else:
+                    # --- approval gate (primary file only for the diff preview) ---
                     with open(target_file, encoding="utf-8") as f:
                         original_content = f.read()
+
+                    # Generate multi-file patch
+                    patches = self.patcher.generate_multi_patch(
+                        failure_context,
+                        target_files=all_files,
+                        diagnosis=diagnosis,
+                    )
+
+                    # Fall back to single-file patch if multi-patch returned nothing
+                    if not patches:
+                        logger.info("Multi-patch returned empty; falling back to single-file patch")
+                        patch = self.patcher.generate_patch(
+                            failure_context,
+                            target_file=target_file,
+                            diagnosis=diagnosis,
+                        )
+                        from agents.patch_agent import FilePatch
+
+                        patches = [FilePatch(file_path=target_file, new_content=patch)]
+
+                    patch = patches[0].new_content  # for approval preview / logging
+
+                    logger.debug(
+                        "Generated patch(es) for %d file(s): %s",
+                        len(patches),
+                        safe_patch_summary(patch, self.settings.log_patch_preview_chars),
+                    )
 
                     if not request_patch_approval(
                         target_file,
@@ -493,8 +526,8 @@ class WorkflowOrchestrator:
                         )
                     else:
                         if self.settings.backup_before_patch:
-                            self.backup_manager.backup_before_attempt(target_file, run_id, attempt)
-                        self.patcher.apply_patch(target_file, patch)
+                            self.backup_manager.backup_before_attempts(all_files, run_id, attempt)
+                        applied_files = self.patcher.apply_multi_patch(patches)
                         validation = self.validator.validate_patch(
                             target_file=target_file,
                             failing_command=failing_command,
@@ -517,7 +550,7 @@ class WorkflowOrchestrator:
             dry_run_complete = self.dry_run and validation.get("status") == "dry_run"
 
             if not success and not self.dry_run and self.settings.backup_before_patch:
-                self.backup_manager.restore_original(target_file, run_id)
+                self.backup_manager.restore_originals(all_files, run_id)
 
             repair_attempt = RepairAttempt(
                 attempt=attempt,
@@ -546,15 +579,21 @@ class WorkflowOrchestrator:
                 return WorkflowResult(
                     run_id=run_id,
                     status="dry_run_complete",
-                    message=("Dry-run finished: diagnosis and patch generated without applying."),
+                    message="Dry-run finished: diagnosis and patch generated without applying.",
                     failure_type=failure_type,
                     target_file=target_file,
+                    target_files=all_files,
                     attempts=attempts,
                     repair_success=False,
                 )
 
             if success:
-                logger.info("Repair succeeded on attempt %d", attempt)
+                repaired_files = applied_files or all_files
+                logger.info(
+                    "Repair succeeded on attempt %d — %d file(s) changed",
+                    attempt,
+                    len(repaired_files),
+                )
                 record_patch_applied(
                     run_id=run_id,
                     target_file=target_file,
@@ -568,20 +607,21 @@ class WorkflowOrchestrator:
                     target_file=target_file,
                 )
                 if self.settings.backup_before_patch:
-                    self.backup_manager.clear_run_backups(target_file, run_id)
+                    self.backup_manager.clear_run_backups_list(repaired_files, run_id)
                 cleanup_validation_containers()
                 git_info = self._git_commit_repair(
                     run_id=run_id,
-                    target_file=target_file,
+                    target_files=repaired_files,
                     failure_type=failure_type,
                     attempt=attempt,
                 )
                 return WorkflowResult(
                     run_id=run_id,
                     status="repaired",
-                    message=f"Repair succeeded on attempt {attempt}.",
+                    message=f"Repair succeeded on attempt {attempt} ({len(repaired_files)} file(s) changed).",
                     failure_type=failure_type,
                     target_file=target_file,
+                    target_files=repaired_files,
                     attempts=attempts,
                     repair_success=True,
                     git_info=git_info,
@@ -605,8 +645,8 @@ class WorkflowOrchestrator:
         if not self.dry_run:
             cleanup_validation_containers()
             if self.settings.backup_before_patch:
-                self.backup_manager.restore_original(target_file, run_id)
-                logger.info("Restored original file after exhausted retries")
+                self.backup_manager.restore_originals(all_files, run_id)
+                logger.info("Restored %d original file(s) after exhausted retries", len(all_files))
 
         record_run_outcome(
             run_id=run_id,
@@ -620,6 +660,7 @@ class WorkflowOrchestrator:
             message=f"All {self.max_retries} repair attempts exhausted.",
             failure_type=failure_type,
             target_file=target_file,
+            target_files=all_files,
             attempts=attempts,
             repair_success=False,
         )
@@ -628,7 +669,7 @@ class WorkflowOrchestrator:
         self,
         *,
         run_id: int | str,
-        target_file: str,
+        target_files: list[str],
         failure_type: str,
         attempt: int,
     ) -> dict[str, Any] | None:
@@ -637,7 +678,7 @@ class WorkflowOrchestrator:
         try:
             branch = self.git_manager.commit_repair(
                 run_id=run_id,
-                target_file=target_file,
+                target_files=target_files,
                 failure_type=failure_type,
                 attempt=attempt,
             )
@@ -658,7 +699,15 @@ class WorkflowOrchestrator:
         if not repaired:
             return
 
-        files = [r.target_file for r in repaired if r.target_file]
+        # Prefer the expanded target_files list; fall back to target_file
+        files = list(
+            dict.fromkeys(
+                f
+                for r in repaired
+                for f in (r.target_files if r.target_files else [r.target_file or ""])
+                if f
+            )
+        )
         git_result = self.git_manager.finalize_run(run_id, files)
 
         for result in repaired:
