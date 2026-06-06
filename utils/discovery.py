@@ -2,6 +2,9 @@ import os
 from pathlib import Path
 
 from config.settings import get_settings
+from utils.logging import get_logger
+
+logger = get_logger("discovery")
 
 
 def discover_sample_tests(base_dir: str = "sample_projects") -> list[str]:
@@ -34,9 +37,11 @@ def discover_tests_under_prefixes(prefixes: list[str] | None = None) -> list[str
     prefixes = prefixes or list(settings.allowed_path_prefixes)
     discovered: list[str] = []
 
+    logger.debug("discover_tests_under_prefixes: cwd=%s prefixes=%s", Path.cwd(), prefixes)
     for prefix in prefixes:
         base = Path(prefix.rstrip("/"))
         if not base.is_dir():
+            logger.debug("Prefix dir not found: %s (resolved: %s)", base, base.resolve())
             continue
 
         for root, _, files in os.walk(base):

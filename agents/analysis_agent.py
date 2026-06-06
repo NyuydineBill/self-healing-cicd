@@ -1,4 +1,8 @@
+from openai import OpenAI
+
+from config.settings import get_settings
 from parsers import get_parser
+from utils.llm_client import chat_completion_with_retry
 from utils.logging import get_logger
 
 logger = get_logger("analysis_agent")
@@ -19,4 +23,52 @@ class AnalysisAgent:
 
     def extract_failed_file(self, log_text: str) -> str | None:
         parser = get_parser(log_text)
-        return parser.extract_failed_file(log_text)
+        result = parser.extract_failed_file(log_text)
+        if result:
+            return result
+        logger.debug("Pattern matching found no target file; trying LLM fallback")
+        return self._llm_identify_file(log_text)
+
+    def _llm_identify_file(self, log_text: str) -> str | None:
+        settings = get_settings()
+        if not settings.openai_api_key:
+            return None
+        client = OpenAI(
+            api_key=settings.openai_api_key,
+            timeout=settings.openai_timeout,
+            max_retries=settings.openai_max_retries,
+        )
+        truncated = log_text[-4000:]
+        try:
+            resp = chat_completion_with_retry(
+                client,
+                model=settings.openai_model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a CI failure analyst. "
+                            "Return ONLY the relative path of the Python source file that "
+                            "needs to be fixed to resolve the test failure (e.g. tests/test_foo.py). "
+                            "If you cannot determine the file, return the single word UNKNOWN."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": f"From this CI log, what Python file needs to be fixed?\n\nLog:\n{truncated}",
+                    },
+                ],
+                timeout=settings.openai_timeout,
+            )
+            file_path = resp.choices[0].message.content.strip()
+            if (
+                file_path
+                and file_path != "UNKNOWN"
+                and file_path.endswith(".py")
+                and "/" in file_path
+            ):
+                logger.info("LLM identified target file: %s", file_path)
+                return file_path
+        except Exception as exc:
+            logger.debug("LLM file identification failed: %s", exc)
+        return None

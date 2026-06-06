@@ -1,5 +1,7 @@
 import os
+import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from agents.analysis_agent import AnalysisAgent
@@ -24,7 +26,7 @@ from utils.git_repair import GitRepairError, GitRepairManager
 from utils.log_extractor import iter_log_files, save_and_extract_logs
 from utils.logging import get_logger, set_run_id
 from utils.offline_logs import discover_offline_runs, iter_offline_logs
-from utils.policy import PolicyViolation, enforce_path_policy
+from utils.policy import PolicyViolation, enforce_path_policy, is_path_allowed
 from utils.results_store import ResultsStore
 from utils.secrets import safe_patch_summary
 
@@ -239,6 +241,7 @@ class WorkflowOrchestrator:
 
             target_file = self._resolve_target_file(log_text, sample_test_paths)
             if not target_file:
+                logger.warning("Could not resolve target file from offline log for run %s", run_id)
                 continue
 
             try:
@@ -309,6 +312,11 @@ class WorkflowOrchestrator:
                 )
                 break
 
+            # Skip root-level runner/system logs (e.g. 0_test.txt — GitHub runner metadata)
+            if Path(log_path).parent == extract_dir:
+                logger.debug("Skipping system log: %s", log_path)
+                continue
+
             errors = self.analyzer.extract_failure_context(log_text)
             if not errors:
                 continue
@@ -363,18 +371,34 @@ class WorkflowOrchestrator:
         return results
 
     def _resolve_target_file(self, log_text: str, sample_test_paths: list[str]) -> str | None:
+        # 1. Parser + LLM pattern matching
         target_file = self.analyzer.extract_failed_file(log_text)
 
+        # 2. Broad scan: any .py path in the log that passes policy AND exists on disk
+        if not target_file:
+            target_file = self._broad_file_search(log_text)
+
+        # 3. Basename match against discovered test files
         if not target_file:
             for path in sample_test_paths:
                 if os.path.basename(path) in log_text:
                     target_file = path
                     break
 
+        # 4. Last resort: first discovered test file
         if not target_file and sample_test_paths:
             target_file = sample_test_paths[0]
 
         return target_file
+
+    def _broad_file_search(self, log_text: str) -> str | None:
+        """Find any relative .py path mentioned in the log that passes policy and exists on disk."""
+        for match in re.finditer(r"\b((?:[\w][\w.-]*/)+[\w.-]+\.py)\b", log_text):
+            path = match.group(1)
+            if is_path_allowed(path) and os.path.exists(path):
+                logger.debug("Broad file search found: %s", path)
+                return path
+        return None
 
     def _repair_with_retries(
         self,
