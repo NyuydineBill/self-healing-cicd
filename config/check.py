@@ -1,6 +1,7 @@
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 from config.settings import Settings, get_settings
 from config.validation import ConfigurationError, validate_configuration
@@ -60,7 +61,7 @@ def run_health_check(settings: Settings | None = None) -> int:
 
     # Git
     if settings.git_enabled:
-        git_dir = settings.project_root / ".git"
+        git_dir = Path.cwd() / ".git"
         add("Git repository", git_dir.is_dir(), str(git_dir))
     else:
         add("Git repository", True, "skipped (GIT_ENABLED=false)")

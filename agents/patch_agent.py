@@ -20,7 +20,7 @@ class PatchAgent:
     def _load_related_source(self, target_file: str) -> str:
         """Load related source module for context (sample_projects, app/, src/)."""
         path = Path(target_file)
-        root = self.settings.project_root
+        root = Path.cwd()
 
         for part in path.parts:
             if part.startswith("project_"):

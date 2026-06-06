@@ -23,7 +23,7 @@ class GitRepairManager:
 
     def __init__(self) -> None:
         self.settings = get_settings()
-        self.repo_path = Path(self.settings.project_root)
+        self.repo_path = Path.cwd()  # repo being healed, not the installed package root
         self._repo: Repo | None = None
         self._active_branches: dict[str, str] = {}
 
