@@ -1,3 +1,4 @@
+import contextlib
 import re
 from pathlib import Path
 
@@ -80,13 +81,14 @@ class AnalysisAgent:
 
         # 1. All File "..." paths in the traceback
         for m in re.finditer(r'File\s+"([^"]+\.py)"', log_text):
-            path = m.group(1)
-            # Normalise absolute paths to relative if possible
-            for prefix in ("./", "/"):
-                if path.startswith(prefix):
-                    path = path[len(prefix) :]
-            # Only keep paths that look like repo-relative (no leading /usr, /opt …)
-            if not path.startswith("/") and "/" in path:
+            p = Path(m.group(1))
+            # Normalise absolute paths to CWD-relative so they display cleanly
+            if p.is_absolute():
+                with contextlib.suppress(ValueError):
+                    p = p.relative_to(Path.cwd())
+            path = p.as_posix()
+            # Only keep repo-relative paths (still-absolute means outside CWD — skip)
+            if not p.is_absolute() and "/" in path:
                 seen[path] = None
 
         # 2. FAILED or ERROR test lines (pytest short form; ERROR for collection failures)
@@ -95,12 +97,16 @@ class AnalysisAgent:
 
         # 3. ImportError / ModuleNotFoundError — extract the module's file path
         for m in re.finditer(r"(?:ImportError|ModuleNotFoundError)[^\n]*\(([^)]+\.py)\)", log_text):
-            seen[m.group(1)] = None
+            p3 = Path(m.group(1))
+            if p3.is_absolute():
+                with contextlib.suppress(ValueError):
+                    p3 = p3.relative_to(Path.cwd())
+            if not p3.is_absolute():
+                seen[p3.as_posix()] = None
 
-        # 4. Always include the single primary file (LLM fallback) as a safety net
-        primary = self.extract_failed_file(log_text)
-        if primary:
-            seen[primary] = None
+        # Note: the primary file is inserted by the caller if not already present,
+        # so no extra LLM call here (avoids a duplicate when _resolve_target_file
+        # and extract_failed_files are both called for the same log).
 
         # Only return files that actually exist in the working tree
         files = [f for f in seen if Path(f).is_file()]
