@@ -51,9 +51,10 @@ FAILURE_LABELS = {
     12: "Wrong exception type (design-broken)",
     13: "Off-by-one error (design-broken)",
     14: "Type coercion TypeError (design-broken)",
+    15: "Retry recovery — cascading hidden bug (design-broken)",
 }
 
-DESIGN_BROKEN = {11, 12, 13, 14}
+DESIGN_BROKEN = {11, 12, 13, 14, 15}
 
 # ANSI colours
 _RESET = "\033[0m"

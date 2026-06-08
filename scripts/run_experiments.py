@@ -38,7 +38,7 @@ EXPERIMENT_RESULTS = RESULTS_DIR / "experiment_results.json"
 # Projects broken by break-sample.sh (1-10)
 SCRIPTABLE_PROJECTS = list(range(1, 11))
 # Projects whose failure is their permanent "broken" state (already wrong by design)
-DESIGN_BROKEN_PROJECTS = list(range(11, 15))
+DESIGN_BROKEN_PROJECTS = list(range(11, 16))
 
 FAILURE_LABELS = {
     1: "AssertionError",
@@ -55,6 +55,7 @@ FAILURE_LABELS = {
     12: "Wrong exception type",
     13: "Off-by-one error",
     14: "Type coercion TypeError",
+    15: "Retry recovery (cascading)",
 }
 
 
