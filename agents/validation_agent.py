@@ -20,6 +20,23 @@ _UNSAFE_REPLAY_RE = re.compile(
 )
 
 _COV_ARG_RE = re.compile(r"^--cov")
+_COV_REPORT_RE = re.compile(r"^--cov-report")
+
+
+def _strip_cov_args(parts: list[str]) -> list[str]:
+    return [
+        p
+        for p in parts
+        if not _COV_ARG_RE.match(p) and not _COV_REPORT_RE.match(p) and p != "--no-cov"
+    ]
+
+
+def _inject_pytest_ini_override(parts: list[str]) -> list[str]:
+    """Override pytest.ini addopts (self-heal CI has pytest but not pytest-cov)."""
+    if "-m" not in parts or "pytest" not in parts or "-o" in parts:
+        return parts
+    idx = parts.index("pytest") + 1
+    return parts[:idx] + ["-o", "addopts="] + parts[idx:]
 
 
 class ValidationAgent:
@@ -46,12 +63,8 @@ class ValidationAgent:
         elif use_local_python:
             parts[0] = sys.executable
 
-        # Inject --no-cov but drop CI coverage flags (mixing both yields pytest exit 4).
         if use_local_python and "-m" in parts and "pytest" in parts:
-            parts = [p for p in parts if not _COV_ARG_RE.match(p)]
-            if "--no-cov" not in parts:
-                idx = parts.index("pytest") + 1
-                parts.insert(idx, "--no-cov")
+            parts = _inject_pytest_ini_override(_strip_cov_args(parts))
 
         return parts
 
@@ -111,7 +124,6 @@ class ValidationAgent:
         }
 
     def _pytest_env(self) -> dict[str, str]:
-        """Clear pytest.ini addopts so --no-cov does not fight --cov= from config."""
         return {**os.environ, "PYTEST_ADDOPTS": ""}
 
     def _validate_direct(self, target_file: str | None = None) -> dict[str, Any]:
@@ -130,7 +142,7 @@ class ValidationAgent:
 
         try:
             result = subprocess.run(
-                [sys.executable, "-m", "pytest", scope, "-v", "--tb=short", "--no-cov"],
+                [sys.executable, "-m", "pytest", "-o", "addopts=", scope, "-v", "--tb=short"],
                 capture_output=True,
                 text=True,
                 timeout=self.validation_timeout,
@@ -166,18 +178,18 @@ class ValidationAgent:
     def _pytest_command(self, target_file: str | None = None) -> list[str]:
         """Build docker run pytest args, scoped to project when possible."""
         if self.validate_full_repo or not target_file:
-            return ["pytest", "-v"]
+            return ["pytest", "-o", "addopts=", "-v", "--tb=short"]
 
         scope = resolve_validation_scope(target_file, self.sample_projects_dir)
         if scope:
             logger.info("Scoped validation to %s", scope)
-            return ["pytest", scope, "-v"]
+            return ["pytest", "-o", "addopts=", scope, "-v", "--tb=short"]
 
         logger.warning(
             "Could not scope validation for %s; running full test suite",
             target_file,
         )
-        return ["pytest", "-v"]
+        return ["pytest", "-o", "addopts=", "-v", "--tb=short"]
 
     def validate_patch(
         self,

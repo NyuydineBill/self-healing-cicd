@@ -12,7 +12,8 @@ def test_normalize_replay_strips_cov_flags_and_uses_local_python():
     parts = agent._normalize_replay_parts(__import__("shlex").split(cmd))
 
     assert parts[0] == sys.executable
-    assert "--no-cov" in parts
+    assert "-o" in parts
+    assert parts[parts.index("-o") + 1] == "addopts="
     assert "--cov=." not in parts
     assert not any(p.startswith("--cov-report") for p in parts)
 
@@ -33,5 +34,6 @@ def test_replay_clears_pytest_ini_addopts():
     parts = agent._normalize_replay_parts(__import__("shlex").split(cmd))
     env = agent._pytest_env()
     assert env.get("PYTEST_ADDOPTS") == ""
-    assert "--no-cov" in parts
+    assert "-o" in parts
+    assert parts[parts.index("-o") + 1] == "addopts="
     assert "--cov=." not in parts
