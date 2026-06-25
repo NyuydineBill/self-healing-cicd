@@ -25,3 +25,13 @@ def test_validate_patch_scopes_sample_project_repairs():
     )
     assert result["status"] in ("success", "failed")
     assert result.get("scope") == "sample_projects/project_1"
+
+
+def test_replay_clears_pytest_ini_addopts():
+    agent = ValidationAgent()
+    cmd = "pytest tests/ sample_projects/ -v --cov=. --cov-report=term-missing --cov-report=xml"
+    parts = agent._normalize_replay_parts(__import__("shlex").split(cmd))
+    env = agent._pytest_env()
+    assert env.get("PYTEST_ADDOPTS") == ""
+    assert "--no-cov" in parts
+    assert "--cov=." not in parts

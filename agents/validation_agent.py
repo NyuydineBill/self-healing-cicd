@@ -80,7 +80,11 @@ class ValidationAgent:
         logger.info("Replay validation: %s", " ".join(parts))
         try:
             result = subprocess.run(
-                parts, capture_output=True, text=True, timeout=self.validation_timeout
+                parts,
+                capture_output=True,
+                text=True,
+                timeout=self.validation_timeout,
+                env=self._pytest_env(),
             )
         except FileNotFoundError as exc:
             logger.warning("Replay command not found (%s); falling back to pytest", exc)
@@ -106,21 +110,31 @@ class ValidationAgent:
             "scope": command,
         }
 
+    def _pytest_env(self) -> dict[str, str]:
+        """Clear pytest.ini addopts so --no-cov does not fight --cov= from config."""
+        return {**os.environ, "PYTEST_ADDOPTS": ""}
+
     def _validate_direct(self, target_file: str | None = None) -> dict[str, Any]:
         """Run pytest in the current environment without Docker."""
-        scope = (
-            resolve_validation_scope(target_file, self.sample_projects_dir) if target_file else None
-        )
-        if not scope:
+        if target_file and Path(target_file).is_file():
+            sample_scope = resolve_validation_scope(target_file, self.sample_projects_dir)
+            if sample_scope and sample_scope.startswith(f"{self.sample_projects_dir}/"):
+                scope = sample_scope
+            else:
+                scope = target_file
+        elif target_file:
+            scope = resolve_validation_scope(target_file, self.sample_projects_dir) or "."
+        else:
             scope = "."
         logger.info("Direct validation scope: %s", scope)
 
         try:
             result = subprocess.run(
-                [sys.executable, "-m", "pytest", "--no-cov", scope, "-v", "--tb=short"],
+                [sys.executable, "-m", "pytest", scope, "-v", "--tb=short", "--no-cov"],
                 capture_output=True,
                 text=True,
                 timeout=self.validation_timeout,
+                env=self._pytest_env(),
             )
             combined = result.stdout + result.stderr
             if result.returncode == 0:
@@ -170,11 +184,14 @@ class ValidationAgent:
         target_file: str | None = None,
         failing_command: str | None = None,
     ) -> dict[str, Any]:
-        # Single-project repairs: validate only the affected scope, not the entire CI suite.
+        # Scoped validation beats full-suite replay (avoids pytest.ini addopts conflicts).
         if target_file and not self.validate_full_repo:
             scope = resolve_validation_scope(target_file, self.sample_projects_dir)
-            if scope and scope.startswith(f"{self.sample_projects_dir}/"):
-                logger.info("Scoped validation for %s (not replaying full CI command)", scope)
+            if scope or Path(target_file).is_file():
+                logger.info(
+                    "Scoped validation for %s (not replaying full CI command)",
+                    scope or target_file,
+                )
                 return self._validate_direct(target_file)
 
         if failing_command:

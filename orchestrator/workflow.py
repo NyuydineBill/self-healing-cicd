@@ -397,6 +397,13 @@ class WorkflowOrchestrator:
         return results
 
     def _resolve_target_file(self, log_text: str, sample_test_paths: list[str]) -> str | None:
+        # Prefer sample_projects failures over framework tests/ paths in the same log.
+        sample_prefix = f"{self.settings.sample_projects_dir}/"
+        for path in self.analyzer.extract_failed_files(log_text):
+            normalized = path.replace("\\", "/")
+            if normalized.startswith(sample_prefix):
+                return path
+
         # 1. Parser + LLM pattern matching
         target_file = self.analyzer.extract_failed_file(log_text)
 
