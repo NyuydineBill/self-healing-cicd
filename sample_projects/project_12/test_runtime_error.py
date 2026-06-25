@@ -8,5 +8,5 @@ def test_divide_normal():
 
 
 def test_divide_by_zero_raises():
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ValueError):
         safe_divide(5, 0)

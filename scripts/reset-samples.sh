@@ -112,4 +112,87 @@ write sample_projects/project_10/test_zero_division.py 'from sample_projects.pro
 def test_divide():
     assert divide(10, 2) == 5'
 
+# project_11
+write sample_projects/project_11/app.py 'def product(a, b):
+    return a * b'
+
+write sample_projects/project_11/test_multi_file.py 'from sample_projects.project_11.app import product
+
+
+def test_product():
+    assert product(3, 4) == 12'
+
+# project_12
+write sample_projects/project_12/app.py 'def safe_divide(a, b):
+    if b == 0:
+        raise ValueError("divisor cannot be zero")
+    return a / b'
+
+write sample_projects/project_12/test_runtime_error.py 'import pytest
+
+from sample_projects.project_12.app import safe_divide
+
+
+def test_divide_normal():
+    assert safe_divide(10, 2) == 5.0
+
+
+def test_divide_by_zero_raises():
+    with pytest.raises(ValueError):
+        safe_divide(5, 0)'
+
+# project_13
+write sample_projects/project_13/app.py 'def sum_to(n):
+    """Return the sum of integers from 1 to n inclusive."""
+    total = 0
+    for i in range(1, n + 1):
+        total += i
+    return total'
+
+write sample_projects/project_13/test_off_by_one.py 'from sample_projects.project_13.app import sum_to
+
+
+def test_sum_to_5():
+    assert sum_to(5) == 15
+
+
+def test_sum_to_1():
+    assert sum_to(1) == 1'
+
+# project_14
+write sample_projects/project_14/app.py 'def greet(name, count):
+    """Return a greeting repeated `count` times."""
+    return ("Hello, " + str(name) + "! ") * count'
+
+write sample_projects/project_14/test_type_error.py 'from sample_projects.project_14.app import greet
+
+
+def test_greet_once():
+    assert greet("Alice", 1) == "Hello, Alice! "
+
+
+def test_greet_twice():
+    result = greet("Bob", 2)
+    assert result == "Hello, Bob! Hello, Bob! "
+
+
+def test_greet_with_number_name():
+    assert greet(42, 1) == "Hello, 42! "'
+
+# project_15
+write sample_projects/project_15/math_helper.py 'def square(x):
+    return x * x'
+
+write sample_projects/project_15/stats_helper.py 'from sample_projects.project_15.math_helper import square
+
+
+def sum_of_squares(values):
+    return sum(square(v) for v in values)'
+
+write sample_projects/project_15/test_retry_recovery.py 'from sample_projects.project_15.stats_helper import sum_of_squares
+
+
+def test_sum_of_squares():
+    assert sum_of_squares([1, 2, 3]) == 14'
+
 echo "All sample_projects restored to golden (passing) state."
