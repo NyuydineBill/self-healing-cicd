@@ -132,6 +132,16 @@ class Settings:
             if n.strip()
         )
     )
+    # When set (e.g. by GitHub Actions workflow_run trigger), repair only this run.
+    github_trigger_run_id: str = field(
+        default_factory=lambda: os.getenv("GITHUB_TRIGGER_RUN_ID", "").strip()
+    )
+    # Comma-separated workflow names to include (empty = any non-excluded failure).
+    target_workflow_names: tuple = field(
+        default_factory=lambda: tuple(
+            n.strip() for n in os.getenv("TARGET_WORKFLOW_NAMES", "").split(",") if n.strip()
+        )
+    )
 
     # Git integration
     git_enabled: bool = field(

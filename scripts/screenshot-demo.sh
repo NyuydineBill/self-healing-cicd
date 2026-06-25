@@ -346,6 +346,9 @@ run_continue() {
   local run_id
   run_id="$(wait_for_ci_failure)" || die "No failed Test Pipeline run detected. Push your broken commit first."
 
+  export GITHUB_TRIGGER_RUN_ID="$run_id"
+  export TARGET_WORKFLOW_NAMES="Test Pipeline"
+
   capture_now 2 14 "Pipeline Failure — GitHub Actions → red ❌ Test Pipeline"
   info "Open: $(actions_url)"
   info "Crop: workflow name, Failed badge, branch, 3 jobs / 1 failed."
@@ -369,7 +372,9 @@ run_continue() {
 
   OFFLINE_MODE=false DRY_RUN=false GIT_ENABLED=false \
     AUTO_APPROVE_PATCHES=true REQUIRE_APPROVAL=false LOG_LEVEL=INFO \
-    MAX_FAILED_RUNS=1 STOP_ON_FIRST_SUCCESS=true \
+    MAX_FAILED_RUNS=1 MAX_FAILURES_PER_RUN=1 STOP_ON_FIRST_SUCCESS=true \
+    GITHUB_TRIGGER_RUN_ID="${GITHUB_TRIGGER_RUN_ID}" \
+    TARGET_WORKFLOW_NAMES="${TARGET_WORKFLOW_NAMES}" \
     python -u main.py || true
 
   echo

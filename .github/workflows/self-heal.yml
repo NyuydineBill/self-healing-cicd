@@ -89,4 +89,8 @@ jobs:
           AUTO_APPROVE_PATCHES: "true"
           REQUIRE_APPROVAL: "false"
           EXCLUDED_WORKFLOW_NAMES: "Self-Heal on Failure,self-heal"
+          GITHUB_TRIGGER_RUN_ID: ${{ github.event.workflow_run.id || '' }}
+          TARGET_WORKFLOW_NAMES: "Test Pipeline"
+          MAX_FAILED_RUNS: "1"
+          MAX_FAILURES_PER_RUN: "1"
         run: python main.py
