@@ -2,8 +2,9 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
-def reset_settings():
-    """Reset settings singleton between tests."""
+def reset_settings(monkeypatch):
+    """Reset settings singleton between tests; provide dummy OpenAI key for CI."""
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     import config.settings as settings_module
 
     settings_module._settings = None
