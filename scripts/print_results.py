@@ -43,7 +43,7 @@ def main() -> None:
     # ── Figure 4.6: Per-project validation results ─────────────────────────
     width = 72
     print(f"{_BOLD}{_CYAN}{'=' * width}{_RESET}")
-    print(f"{_BOLD}{_CYAN}  Figure 4.6 — Per-Scenario Validation Results{_RESET}")
+    # print(f"{_BOLD}{_CYAN}  Figure 4.6 — Per-Scenario Validation Results{_RESET}")
     print(f"{_BOLD}{_CYAN}{'=' * width}{_RESET}")
 
     header = (
@@ -73,7 +73,7 @@ def main() -> None:
 
     # ── Figure 4.7: Summary statistics ────────────────────────────────────
     print(f"{_BOLD}{_CYAN}{'=' * width}{_RESET}")
-    print(f"{_BOLD}{_CYAN}  Figure 4.7 — Experimental Evaluation Summary{_RESET}")
+    # print(f"{_BOLD}{_CYAN}  Figure 4.7 — Experimental Evaluation Summary{_RESET}")
     print(f"{_BOLD}{_CYAN}{'=' * width}{_RESET}\n")
 
     total = len(experiments)

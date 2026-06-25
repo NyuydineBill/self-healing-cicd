@@ -29,6 +29,7 @@ from utils.offline_logs import discover_offline_runs, iter_offline_logs
 from utils.policy import PolicyViolation, enforce_path_policy, is_path_allowed
 from utils.results_store import ResultsStore
 from utils.secrets import safe_patch_summary
+from utils.validation_scope import resolve_validation_scope
 
 logger = get_logger("orchestrator")
 
@@ -266,7 +267,10 @@ class WorkflowOrchestrator:
 
             failure_type = categorize_failure(errors).value
             failing_command = self.analyzer.extract_failing_command(log_text)
-            target_files = self.analyzer.extract_failed_files(log_text)
+            target_files = self._filter_files_to_scope(
+                target_file,
+                self.analyzer.extract_failed_files(log_text),
+            )
             if target_file not in target_files:
                 target_files.insert(0, target_file)
             repair_result = self._repair_with_retries(
@@ -359,7 +363,10 @@ class WorkflowOrchestrator:
 
             failure_type = categorize_failure(errors).value
             failing_command = self.analyzer.extract_failing_command(log_text)
-            target_files = self.analyzer.extract_failed_files(log_text)
+            target_files = self._filter_files_to_scope(
+                target_file,
+                self.analyzer.extract_failed_files(log_text),
+            )
             if target_file not in target_files:
                 target_files.insert(0, target_file)
             logger.info(
@@ -408,6 +415,27 @@ class WorkflowOrchestrator:
             target_file = sample_test_paths[0]
 
         return target_file
+
+    def _filter_files_to_scope(self, primary: str, files: list[str]) -> list[str]:
+        """Keep only files under the same repair scope as the primary failure."""
+        scope = resolve_validation_scope(primary, self.settings.sample_projects_dir)
+        if not scope:
+            return files
+        prefix = f"{scope}/"
+        scoped = [f for f in files if f.startswith(prefix)]
+        if primary not in scoped:
+            scoped.insert(0, primary)
+        elif scoped[0] != primary:
+            scoped.remove(primary)
+            scoped.insert(0, primary)
+        if len(scoped) < len(files):
+            logger.info(
+                "Scoped repair files to %s: %s (dropped %d unrelated path(s))",
+                scope,
+                scoped,
+                len(files) - len(scoped),
+            )
+        return scoped
 
     def _broad_file_search(self, log_text: str) -> str | None:
         """Find any relative .py path in the log that passes path policy."""

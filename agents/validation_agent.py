@@ -19,6 +19,8 @@ _UNSAFE_REPLAY_RE = re.compile(
     re.IGNORECASE,
 )
 
+_COV_ARG_RE = re.compile(r"^--cov")
+
 
 class ValidationAgent:
     def __init__(self, image_tag: str | None = None):
@@ -29,30 +31,51 @@ class ValidationAgent:
         self.sample_projects_dir = settings.sample_projects_dir
         self.validation_timeout = settings.validation_timeout
 
-    def _validate_by_replay(self, command: str) -> dict[str, Any]:
+    def _normalize_replay_parts(self, parts: list[str]) -> list[str]:
+        """Make a CI command runnable in the local repair environment."""
+        if not parts:
+            return parts
+
+        raw_binary = Path(parts[0]).name.lower()
+        binary = raw_binary[:-4] if raw_binary.endswith(".exe") else raw_binary
+        use_local_python = binary in ("python", "python3") or not os.path.isfile(parts[0])
+
+        if binary == "pytest":
+            parts = [sys.executable, "-m", "pytest"] + parts[1:]
+            use_local_python = True
+        elif use_local_python:
+            parts[0] = sys.executable
+
+        # Inject --no-cov but drop CI coverage flags (mixing both yields pytest exit 4).
+        if use_local_python and "-m" in parts and "pytest" in parts:
+            parts = [p for p in parts if not _COV_ARG_RE.match(p)]
+            if "--no-cov" not in parts:
+                idx = parts.index("pytest") + 1
+                parts.insert(idx, "--no-cov")
+
+        return parts
+
+    def _validate_by_replay(
+        self,
+        command: str,
+        *,
+        target_file: str | None = None,
+    ) -> dict[str, Any]:
         """Re-run the exact command that failed in CI — the most accurate validation."""
         if _UNSAFE_REPLAY_RE.search(command):
             logger.warning("Replay command looks unsafe, falling back to pytest: %r", command)
-            return self._validate_direct()
+            return self._validate_direct(target_file)
 
         try:
             parts = shlex.split(command)
         except ValueError as exc:
             logger.warning("Could not parse replay command %r: %s", command, exc)
-            return self._validate_direct()
+            return self._validate_direct(target_file)
 
         if not parts:
-            return self._validate_direct()
+            return self._validate_direct(target_file)
 
-        # Normalise the binary: strip full path, replace python/python3 with sys.executable
-        raw_binary = Path(parts[0]).name.lower()
-        binary = raw_binary[:-4] if raw_binary.endswith(".exe") else raw_binary
-        if binary in ("python", "python3"):
-            parts[0] = sys.executable
-        elif binary == "pytest":
-            # Ensure we use the venv-local pytest; --no-cov avoids coverage
-            # fail_under thresholds when running scoped (single-project) validation
-            parts = [sys.executable, "-m", "pytest", "--no-cov"] + parts[1:]
+        parts = self._normalize_replay_parts(parts)
 
         logger.info("Replay validation: %s", " ".join(parts))
         try:
@@ -61,7 +84,7 @@ class ValidationAgent:
             )
         except FileNotFoundError as exc:
             logger.warning("Replay command not found (%s); falling back to pytest", exc)
-            return self._validate_direct()
+            return self._validate_direct(target_file)
         except subprocess.TimeoutExpired as exc:
             return {
                 "status": "error",
@@ -147,10 +170,16 @@ class ValidationAgent:
         target_file: str | None = None,
         failing_command: str | None = None,
     ) -> dict[str, Any]:
-        # Replay the exact failing CI command — most accurate regardless of Dockerfile presence
+        # Single-project repairs: validate only the affected scope, not the entire CI suite.
+        if target_file and not self.validate_full_repo:
+            scope = resolve_validation_scope(target_file, self.sample_projects_dir)
+            if scope and scope.startswith(f"{self.sample_projects_dir}/"):
+                logger.info("Scoped validation for %s (not replaying full CI command)", scope)
+                return self._validate_direct(target_file)
+
         if failing_command:
             logger.info("Using CI command replay for validation")
-            return self._validate_by_replay(failing_command)
+            return self._validate_by_replay(failing_command, target_file=target_file)
 
         if not os.path.exists("Dockerfile"):
             logger.info("No Dockerfile found; running pytest directly (no Docker)")
