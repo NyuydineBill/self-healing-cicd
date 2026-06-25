@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Introduce a known failure in sample_projects/project_N for CI / self-heal demos.
-# Usage: ./scripts/break-sample.sh [1-10]
+# Usage: ./scripts/break-sample.sh [1-15]
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PROJECT="${1:-1}"
-if ! [[ "$PROJECT" =~ ^[1-9]$|^10$ ]]; then
-  echo "Usage: $0 <project_number 1-10>" >&2
+if ! [[ "$PROJECT" =~ ^([1-9]|1[0-5])$ ]]; then
+  echo "Usage: $0 <project_number 1-15>" >&2
   exit 1
 fi
 
@@ -85,6 +85,65 @@ EOF
     cat > sample_projects/project_10/app.py <<'EOF'
 def divide(a, b):
     return a / 0
+EOF
+    ;;
+  11)
+    cat > sample_projects/project_11/app.py <<'EOF'
+def multiply(a, b):
+    return a * b
+EOF
+    cat > sample_projects/project_11/test_multi_file.py <<'EOF'
+from sample_projects.project_11.app import product
+
+
+def test_product():
+    assert product(3, 4) == 12
+EOF
+    ;;
+  12)
+    cat > sample_projects/project_12/test_runtime_error.py <<'EOF'
+import pytest
+
+from sample_projects.project_12.app import safe_divide
+
+
+def test_divide_normal():
+    assert safe_divide(10, 2) == 5.0
+
+
+def test_divide_by_zero_raises():
+    with pytest.raises(RuntimeError):
+        safe_divide(5, 0)
+EOF
+    ;;
+  13)
+    cat > sample_projects/project_13/app.py <<'EOF'
+def sum_to(n):
+    """Return the sum of integers from 1 to n inclusive."""
+    total = 0
+    for i in range(1, n):
+        total += i
+    return total
+EOF
+    ;;
+  14)
+    cat > sample_projects/project_14/app.py <<'EOF'
+def greet(name, count):
+    """Return a greeting repeated `count` times."""
+    return ("Hello, " + name + "! ") * count
+EOF
+    ;;
+  15)
+    cat > sample_projects/project_15/math_helper.py <<'EOF'
+def square(x):
+    return x * x * x  # BUG: computes cube, not square
+EOF
+    cat > sample_projects/project_15/stats_helper.py <<'EOF'
+from sample_projects.project_15.math_helper import square
+
+
+def sum_of_squares(values):
+    return sum(square(v) for v in values) + 1  # BUG: spurious +1 offset
 EOF
     ;;
 esac

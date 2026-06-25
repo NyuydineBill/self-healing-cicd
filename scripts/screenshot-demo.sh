@@ -70,14 +70,16 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if ! [[ "$PROJECT" =~ ^[1-9]$|^10$ ]]; then
-  echo "ERROR: --project must be 1–10" >&2
+if ! [[ "$PROJECT" =~ ^([1-9]|1[0-5])$ ]]; then
+  echo "ERROR: --project must be 1–15" >&2
   exit 1
 fi
 
 FAILURE_NAMES=(
   "" AssertionError ImportError SyntaxError "Logic bug"
   ModuleNotFoundError AttributeError NameError IndexError TypeError ZeroDivisionError
+  "Multi-file ImportError" "Wrong exception type" "Off-by-one error"
+  "Type coercion TypeError" "Retry recovery (multi-bug)"
 )
 FAILURE_LABEL="${FAILURE_NAMES[$PROJECT]}"
 

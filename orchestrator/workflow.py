@@ -11,6 +11,7 @@ from agents.reasoning_agent import ReasoningAgent
 from agents.validation_agent import ValidationAgent
 from config.settings import get_settings
 from utils.approval import request_patch_approval
+from utils.assertion_repair import deterministic_assertion_test_fix
 from utils.audit_log import (
     record_patch_applied,
     record_patch_rejected,
@@ -508,15 +509,22 @@ class WorkflowOrchestrator:
                     with open(target_file, encoding="utf-8") as f:
                         original_content = f.read()
 
-                    # Single-file: use focused patch prompt; multi-file: use JSON multi-patch
-                    if len(all_files) == 1:
+                    from agents.patch_agent import FilePatch
+
+                    fixed_content = (
+                        deterministic_assertion_test_fix(target_file, failure_context)
+                        if len(all_files) == 1
+                        else None
+                    )
+                    if fixed_content:
+                        logger.info("Using deterministic assertion repair for %s", target_file)
+                        patches = [FilePatch(file_path=target_file, new_content=fixed_content)]
+                    elif len(all_files) == 1:
                         patch = self.patcher.generate_patch(
                             failure_context,
                             target_file=target_file,
                             diagnosis=diagnosis,
                         )
-                        from agents.patch_agent import FilePatch
-
                         patches = [FilePatch(file_path=target_file, new_content=patch)]
                     else:
                         patches = self.patcher.generate_multi_patch(
@@ -533,8 +541,6 @@ class WorkflowOrchestrator:
                             target_file=target_file,
                             diagnosis=diagnosis,
                         )
-                        from agents.patch_agent import FilePatch
-
                         patches = [FilePatch(file_path=target_file, new_content=patch)]
 
                     patch = patches[0].new_content  # for approval preview / logging
@@ -570,6 +576,13 @@ class WorkflowOrchestrator:
                             target_file=target_file,
                             failing_command=failing_command,
                         )
+                        if validation.get("status") == "failed":
+                            output = validation.get("output", "")
+                            logger.warning(
+                                "Validation failed on attempt %d — last 1200 chars:\n%s",
+                                attempt,
+                                output[-1200:] if output else "(no output)",
+                            )
 
             except Exception as exc:
                 logger.error(

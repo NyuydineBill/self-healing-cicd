@@ -21,11 +21,12 @@ By default, all projects are in a **passing (golden)** state so `pytest sample_p
 | `project_12` | Wrong exception type | Test expects `ValueError` | `app.py` raises `RuntimeError` — mismatch between raised and expected exception |
 | `project_13` | Off-by-one | `sum_to(5) == 15` | `range(1, n)` excludes `n`; should be `range(1, n+1)` |
 | `project_14` | Type coercion (TypeError) | `greet("Alice", 1)` works | Test passes `42` (int) as name; `"Hello, " + name` raises TypeError |
+| `project_15` | Retry recovery (multi-bug) | `square=x*x`, no `+1` offset | `square` returns cube; `sum_of_squares` adds spurious `+1` |
 
 ## Trigger a failure for CI / self-heal
 
 ```bash
-# Break one project (default: project_1)
+# Break one project (default: project_1; supports 1–15)
 ./scripts/break-sample.sh 1
 
 # Reset all samples to passing
