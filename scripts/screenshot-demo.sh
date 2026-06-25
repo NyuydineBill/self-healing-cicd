@@ -14,7 +14,7 @@
 #   ./scripts/screenshot-demo.sh prepare        break sample + commit only
 #   ./scripts/screenshot-demo.sh continue       after push: CI wait + repair + shots
 #   ./scripts/screenshot-demo.sh local          offline repair (no GitHub wait)
-#   ./scripts/screenshot-demo.sh docker         optional Docker validation shot
+#   python scripts/capture_dissertation_slides.py   # auto-generate Slides 10–13 PNGs
 #
 # Options:
 #   --project N      sample project 1–10 (default: 1)
@@ -83,9 +83,9 @@ FAILURE_NAMES=(
 )
 FAILURE_LABEL="${FAILURE_NAMES[$PROJECT]}"
 
-hr() { printf '%s\n' "${BOLD}$(printf '=%.0s' {1..72})${RESET}"; }
-info() { printf '%s%s%s\n' "$CYAN" "$*" "$RESET"; }
-warn() { printf '%s%s%s\n' "$YELLOW" "$*" "$RESET"; }
+hr() { printf '%s\n' "${BOLD}$(printf '=%.0s' {1..72})${RESET}" >&2; }
+info() { printf '%s%s%s\n' "$CYAN" "$*" "$RESET" >&2; }
+warn() { printf '%s%s%s\n' "$YELLOW" "$*" "$RESET" >&2; }
 die()  { printf '%s%s%s\n' "$RED" "ERROR: $*" "$RESET" >&2; exit 1; }
 
 pause_step() {
@@ -96,13 +96,12 @@ pause_step() {
 
 capture_now() {
   local num="$1" slide="$2" title="$3"
-  echo
+  echo >&2
   hr
-  printf '%s%s  📸  CAPTURE NOW — SCREENSHOT %s  (Slide %s)%s\n' \
-    "$BG_YELLOW" "$BOLD" "$num" "$slide" "$RESET"
-  printf '%s%s     %s%s\n' "$BOLD" "$MAGENTA" "$title" "$RESET"
+  printf '%s%s  📸  CAPTURE NOW — Slide %s%s\n' "$BG_YELLOW" "$BOLD" "$slide" "$RESET" >&2
+  printf '%s%s     %s%s\n' "$BOLD" "$MAGENTA" "$title" "$RESET" >&2
   hr
-  echo
+  echo >&2
 }
 
 load_env() {
@@ -152,6 +151,7 @@ actions_url() {
 print_diagnosis_and_patch() {
   python3 - <<PY
 import json
+import re
 from pathlib import Path
 
 project = "$PROJECT"
@@ -164,29 +164,94 @@ data = json.loads(results[0].read_text())
 history = data.get("repair_history") or []
 entry = history[-1] if history else {}
 
-diagnosis = entry.get("diagnosis", "")
-patch = entry.get("generated_patch") or entry.get("patch", "")
+diagnosis = (entry.get("diagnosis") or "").strip()
+patch = (entry.get("generated_patch") or entry.get("patch", "")).strip()
+patch = re.sub(r"^```\w*\n?", "", patch)
+patch = re.sub(r"\n?```$", "", patch)
+target = data.get("target_file") or entry.get("target_file", "—")
+failure_type = (data.get("failure_type") or entry.get("failure_type") or "unknown").replace("_", " ")
 
-print(f"  Run ID:         {data.get('run_id', '—')}")
-print(f"  Failure type:   {data.get('failure_type') or entry.get('failure_type', '—')}")
-print(f"  Target file:    {data.get('target_file') or entry.get('target_file', '—')}")
-print(f"  Repair success: {data.get('repair_success', '—')}")
-print()
-
+root_cause = diagnosis
 if diagnosis:
-    print("── LLM Diagnosis " + "─" * 55)
-    for line in diagnosis.strip().splitlines():
-        print(f"  {line}")
+    for ln in diagnosis.splitlines():
+        ln = ln.strip()
+        if re.search(r"cause|failure|assertion", ln, re.I):
+            root_cause = re.sub(r"^\d+\.\s*\*+\s*", "", ln).strip("* ").strip()
+            root_cause = re.sub(r"\*+", "", root_cause)
+            break
 else:
-    print("  (diagnosis not in JSON — scroll orchestrator logs above)")
-print()
+    root_cause = f"{failure_type.title()}: see orchestrator logs above"
 
+suggested = "See generated patch below."
 if patch:
-    print("── Generated Patch (new file content) " + "─" * 36)
-    for line in patch.strip().splitlines():
+    for ln in patch.splitlines():
+        if "assert" in ln:
+            suggested = ln.strip()
+            break
+
+print("── Slide 11 — Failure Analysis " + "─" * 42)
+print()
+print(f"  Root Cause:     {root_cause}")
+print(f"  Affected File:  {target}")
+print(f"  Suggested Fix:  {suggested}")
+print()
+if diagnosis and diagnosis != root_cause:
+    print("── Full LLM Diagnosis " + "─" * 48)
+    for line in diagnosis.splitlines():
         print(f"  {line}")
-else:
-    print("  (patch not in JSON — use git diff in the next step)")
+    print()
+if patch:
+    print("── Generated Patch " + "─" * 50)
+    for line in patch.splitlines():
+        print(f"  {line}")
+PY
+}
+
+show_patch_before_after() {
+  python3 - <<PY
+from pathlib import Path
+import re
+
+project = int("$PROJECT")
+target = Path(f"sample_projects/project_{project}/test_unit_failure.py")
+backup_dir = Path("results/backups")
+before = None
+if backup_dir.exists():
+    for bak in sorted(backup_dir.rglob(f"*project_{project}*original.bak"), key=lambda p: p.stat().st_mtime, reverse=True):
+        before = bak.read_text(encoding="utf-8")
+        break
+if before is None:
+    before = target.read_text(encoding="utf-8")
+    # If already repaired, reconstruct broken version for display
+    before = before.replace("== 4", "== 999", 1)
+
+after = target.read_text(encoding="utf-8")
+
+def highlight(content: str, marker: str, colour: str) -> None:
+    for line in content.splitlines():
+        if marker in line:
+            line = line.replace(marker, f"{colour}{marker}\033[0m")
+        print(f"  {line}")
+
+print("── Slide 12 — Patch Generation (Before → After) " + "─" * 24)
+print()
+print("  BEFORE")
+for line in before.splitlines():
+    if "999" in line:
+        print(f"  \033[91m{line}\033[0m")
+    else:
+        print(f"  {line}")
+print()
+print("           ↓")
+print()
+print("  AFTER  (patch applied automatically)")
+for line in after.splitlines():
+    if "== 4" in line:
+        print(f"  \033[92m{line}\033[0m")
+    else:
+        print(f"  {line}")
+print()
+print("  Highlight ONLY the changed assertion line on your slide.")
 PY
 }
 
@@ -347,29 +412,23 @@ run_continue() {
 
   local run_id
   run_id="$(wait_for_ci_failure)" || die "No failed Test Pipeline run detected. Push your broken commit first."
+  [[ "$run_id" =~ ^[0-9]+$ ]] || die "Invalid run ID from GitHub API (got: ${run_id:0:40}…)"
 
   export GITHUB_TRIGGER_RUN_ID="$run_id"
   export TARGET_WORKFLOW_NAMES="Test Pipeline"
 
-  capture_now 2 14 "Pipeline Failure — GitHub Actions → red ❌ Test Pipeline"
-  info "Open: $(actions_url)"
+  capture_now 10 10 "Pipeline Failure — GitHub Actions → red ❌ Test Pipeline"
+  info "Open: https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/actions/runs/${run_id}"
   info "Crop: workflow name, Failed badge, branch, 3 jobs / 1 failed."
   pause_step
 
-  capture_now 3 14 "Failure Logs — Tests & Coverage → Run tests with coverage"
-  info "On GitHub: open the failed job logs and crop ~15 lines around ${FAILURE_LABEL}."
-  info "Terminal reference excerpt from downloaded logs:"
-  echo
-  show_log_excerpt "$run_id"
-  pause_step
-
   hr
-  printf '%s%s  PHASE 3 — LIVE SELF-HEAL (Screenshots 4, 5, 6)%s\n' "$BOLD" "$CYAN" "$RESET"
+  printf '%s%s  PHASE 3 — LIVE SELF-HEAL (Slides 11–13)%s\n' "$BOLD" "$CYAN" "$RESET"
   hr
   echo
 
-  capture_now 4 15 "LLM Diagnosis — watch orchestrator output below"
-  info "Fetching real CI logs from GitHub and running repair (~30–120 s)…"
+  info "Running self-heal against failed run ${run_id} (~30–120 s)…"
+  info "Watch for ReasoningAgent diagnosis in the logs below."
   echo
 
   OFFLINE_MODE=false DRY_RUN=false GIT_ENABLED=false \
@@ -380,33 +439,27 @@ run_continue() {
     python -u main.py || true
 
   echo
-  capture_now 4 15 "LLM Diagnosis — formatted summary (backup shot)"
+  capture_now 11 11 "Failure Analysis — Root Cause / Affected File / Suggested Fix"
   print_diagnosis_and_patch
   pause_step
 
-  capture_now 5 15 "Generated Patch — before / after (highlight + lines only)"
-  info "Unified diff of repaired file(s):"
-  echo
-  git diff --color=always "sample_projects/project_${PROJECT}/" 2>/dev/null \
-    || git diff "sample_projects/project_${PROJECT}/" || true
-  echo
-  info "Highlight ONLY the changed lines in your slide."
+  capture_now 12 12 "Patch Generation — Before → After (highlight changed line only)"
+  show_patch_before_after
   pause_step
 
-  capture_now 6 16 "Validation — pytest passed (green checkmarks)"
-  info "Validation output should appear above in orchestrator logs."
-  info "Confirming locally:"
+  capture_now 13 13 "Validation — pytest passed (scroll orchestrator logs for Docker/validation)"
+  info "Local confirmation:"
   echo
-  python -m pytest "sample_projects/project_${PROJECT}/" -v --tb=short --no-header --no-cov && \
+  python -m pytest -o addopts= "sample_projects/project_${PROJECT}/" -v --tb=short --no-header && \
     info "✓ Tests passed" || warn "✗ Tests still failing"
   pause_step
 
   hr
-  printf '%s%s  PHASE 4 — PIPELINE SUCCESS (Screenshot 7, optional)%s\n' "$BOLD" "$CYAN" "$RESET"
+  printf '%s%s  PHASE 4 — PIPELINE SUCCESS (Slide 13 alt, optional)%s\n' "$BOLD" "$CYAN" "$RESET"
   hr
   echo
 
-  capture_now 7 16 "Pipeline Success — green ✓ Test Pipeline after push"
+  capture_now 13 13 "Pipeline Success — green ✓ after you push the repair"
   info "Commit and push the repair to turn CI green:"
   echo
   printf '  %sgit add sample_projects/project_%s/\n' "$BOLD" "$PROJECT"
