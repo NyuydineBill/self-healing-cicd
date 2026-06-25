@@ -508,12 +508,22 @@ class WorkflowOrchestrator:
                     with open(target_file, encoding="utf-8") as f:
                         original_content = f.read()
 
-                    # Generate multi-file patch
-                    patches = self.patcher.generate_multi_patch(
-                        failure_context,
-                        target_files=all_files,
-                        diagnosis=diagnosis,
-                    )
+                    # Single-file: use focused patch prompt; multi-file: use JSON multi-patch
+                    if len(all_files) == 1:
+                        patch = self.patcher.generate_patch(
+                            failure_context,
+                            target_file=target_file,
+                            diagnosis=diagnosis,
+                        )
+                        from agents.patch_agent import FilePatch
+
+                        patches = [FilePatch(file_path=target_file, new_content=patch)]
+                    else:
+                        patches = self.patcher.generate_multi_patch(
+                            failure_context,
+                            target_files=all_files,
+                            diagnosis=diagnosis,
+                        )
 
                     # Fall back to single-file patch if multi-patch returned nothing
                     if not patches:

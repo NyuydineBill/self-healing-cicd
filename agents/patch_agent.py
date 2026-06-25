@@ -106,6 +106,7 @@ class PatchAgent:
                 "failure_context": failure_context,
                 "diagnosis": diagnosis or "No prior diagnosis available.",
                 "files_context": files_context,
+                "target_files": ", ".join(target_files),
             },
         )
 
@@ -116,7 +117,8 @@ class PatchAgent:
             messages=[{"role": "user", "content": prompt}],
         )
         raw = response.choices[0].message.content or ""
-        return self._parse_multi_patch(raw, allowed=set(context_files))
+        # Only files explicitly targeted for repair may be modified; context imports are read-only.
+        return self._parse_multi_patch(raw, allowed=set(target_files))
 
     def _parse_multi_patch(self, raw: str, allowed: set[str]) -> list[FilePatch]:
         text = re.sub(r"```(?:json)?\n?", "", raw).strip().rstrip("`").strip()

@@ -9,13 +9,16 @@ Diagnosis:
 Files available for repair (you may change any subset):
 {files_context}
 
+Repair targets (ONLY these paths may appear in your JSON — other files are read-only context):
+{target_files}
+
 Return a JSON array where each element describes one file that needs to change.
 Each element must have exactly two keys:
   "file"    — the relative path exactly as shown above
   "content" — the COMPLETE corrected file content (not a diff, the whole file)
 
 Rules:
-1. Only include files that actually need to change.
+1. Only include files from the repair targets list that actually need to change.
 2. Do not add new dependencies or imports that don't already exist.
 3. Preserve all existing behaviour that is unrelated to the failure.
 4. Return valid JSON only — no markdown fences, no explanation.
