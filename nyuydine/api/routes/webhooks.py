@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from config.settings import get_settings
 from nyuydine.api.deps import DbSession
 from nyuydine.db.models import RepairRun, RepairStatus
 from nyuydine.services.github_app import parse_repository, verify_webhook_signature
@@ -13,6 +14,21 @@ from nyuydine.workers.tasks import enqueue_repair
 from utils.logging import get_logger
 
 logger = get_logger("github_webhook")
+
+
+def _is_excluded_workflow(workflow_name: str) -> bool:
+    excluded = {n.lower() for n in get_settings().excluded_workflow_names}
+    name_lower = workflow_name.lower()
+    return any(ex in name_lower or name_lower == ex for ex in excluded)
+
+
+def _is_target_workflow(workflow_name: str) -> bool:
+    targets = {n.lower() for n in get_settings().target_workflow_names}
+    if not targets:
+        return True
+    name_lower = workflow_name.lower()
+    return any(t in name_lower or name_lower == t for t in targets)
+
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
@@ -57,7 +73,25 @@ async def github_webhook(request: Request, db: Session = DbSession) -> dict:
     )
 
     pipeline_run_id = str(workflow_run.get("id"))
-    workflow_name = workflow_run.get("name")
+    workflow_name = workflow_run.get("name") or ""
+
+    if _is_excluded_workflow(workflow_name):
+        logger.info("Ignoring excluded workflow webhook: %s", workflow_name)
+        return {
+            "ok": True,
+            "ignored": True,
+            "reason": "excluded workflow",
+            "workflow": workflow_name,
+        }
+
+    if not _is_target_workflow(workflow_name):
+        logger.info("Ignoring non-target workflow webhook: %s", workflow_name)
+        return {
+            "ok": True,
+            "ignored": True,
+            "reason": "non-target workflow",
+            "workflow": workflow_name,
+        }
 
     existing = (
         db.query(RepairRun)

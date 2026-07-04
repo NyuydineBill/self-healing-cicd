@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -13,7 +14,11 @@ from nyuydine.config import PlatformSettings, get_platform_settings
 from nyuydine.db.session import SessionLocal, init_db, reset_engine
 from nyuydine.services.approval import automation_env
 from nyuydine.services.github_app import verify_webhook_signature
-from nyuydine.services.repair_service import get_or_create_org, get_or_create_repository
+from nyuydine.services.repair_service import (
+    _workspace_path,
+    get_or_create_org,
+    get_or_create_repository,
+)
 
 
 @pytest.fixture
@@ -44,6 +49,14 @@ def client(platform_settings):
     reset_engine()
     init_db()
     return TestClient(create_app())
+
+
+def test_workspace_path_is_absolute(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = _workspace_path(Path("workspaces"), "acme", "acme/app")
+    assert path.is_absolute()
+    assert path.name == "acme_app"
+    assert path.parent.name == "acme"
 
 
 def test_automation_env_modes():
@@ -100,6 +113,38 @@ def test_github_webhook_ping(client):
     )
     assert response.status_code == 200
     assert response.json()["message"] == "pong"
+
+
+def test_github_webhook_ignores_self_heal_workflow(client):
+    payload = {
+        "action": "completed",
+        "installation": {"id": 1, "account": {"login": "acme"}},
+        "repository": {
+            "name": "app",
+            "full_name": "acme/app",
+            "owner": {"login": "acme"},
+            "default_branch": "main",
+        },
+        "workflow_run": {
+            "id": 999,
+            "name": "Self-Heal on Failure",
+            "conclusion": "failure",
+        },
+    }
+    body = json.dumps(payload).encode()
+    sig = "sha256=" + hmac.new(b"test-secret", body, hashlib.sha256).hexdigest()
+    response = client.post(
+        "/webhooks/github",
+        content=body,
+        headers={
+            "X-GitHub-Event": "workflow_run",
+            "X-Hub-Signature-256": sig,
+            "Content-Type": "application/json",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["ignored"] is True
+    assert response.json()["reason"] == "excluded workflow"
 
 
 def test_create_org_and_repository(db):

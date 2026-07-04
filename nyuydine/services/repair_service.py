@@ -2,6 +2,7 @@ import json
 import os
 import re
 import shutil
+import threading
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -9,7 +10,7 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
-from config.settings import reset_settings
+from config.settings import get_settings, reset_settings
 from nyuydine.adapters.base import AutomationMode
 from nyuydine.adapters.registry import get_default_registry
 from nyuydine.config import get_platform_settings
@@ -32,6 +33,14 @@ from orchestrator.workflow import BatchWorkflowResult, WorkflowOrchestrator
 from utils.logging import get_logger
 
 logger = get_logger("repair_service")
+
+# Eager-mode repairs run in background threads; orchestrator mutates process cwd/env.
+_repair_execution_lock = threading.Lock()
+
+
+def _workspace_path(workspace_root: Path, org_slug: str, repository_full_name: str) -> Path:
+    root = workspace_root if workspace_root.is_absolute() else (Path.cwd() / workspace_root)
+    return (root / org_slug / repository_full_name.replace("/", "_")).resolve()
 
 
 def _slugify(name: str) -> str:
@@ -188,7 +197,7 @@ def execute_repair_run(db: Session, repair_run_id: str) -> RepairRun:
     repair_run.message = "Repair job started"
     db.commit()
 
-    workspace = settings.workspace_root / org.slug / repository.full_name.replace("/", "_")
+    workspace = _workspace_path(settings.workspace_root, org.slug, repository.full_name)
     if workspace.exists():
         shutil.rmtree(workspace, ignore_errors=True)
     workspace.mkdir(parents=True, exist_ok=True)
@@ -218,8 +227,12 @@ def execute_repair_run(db: Session, repair_run_id: str) -> RepairRun:
         "STOP_ON_FIRST_SUCCESS": "true",
         "GIT_BASE_BRANCH": branch,
         "ALLOWED_PATH_PREFIXES": "auto",
+        "EXCLUDED_WORKFLOW_NAMES": ",".join(get_settings().excluded_workflow_names),
         **mode_env,
     }
+    target_names = get_settings().target_workflow_names
+    if target_names:
+        job_env["TARGET_WORKFLOW_NAMES"] = ",".join(target_names)
 
     preapproved = is_preapproved(repair_run)
 
@@ -229,11 +242,12 @@ def execute_repair_run(db: Session, repair_run_id: str) -> RepairRun:
         job_env["AUTO_APPROVE_PATCHES"] = "true"
         job_env["REQUIRE_APPROVAL"] = "false"
 
-    try:
-        with _job_environment(job_env, workspace):
-            batch = WorkflowOrchestrator().run()
-    finally:
-        clear_approval_gate()
+    with _repair_execution_lock:
+        try:
+            with _job_environment(job_env, workspace):
+                batch = WorkflowOrchestrator().run()
+        finally:
+            clear_approval_gate()
 
     _persist_batch_results(db, repair_run, batch)
     record_usage(
@@ -251,21 +265,30 @@ def _persist_batch_results(db: Session, repair_run: RepairRun, batch: BatchWorkf
         return
 
     payload = _serialize_batch(batch)
+    dry_run_ok = any(r.status == "dry_run_complete" for r in batch.results)
     repair_run.result_json = json.dumps(payload)
-    repair_run.repair_success = batch.repair_success
-    repair_run.message = batch.message
     repair_run.completed_at = datetime.now(UTC)
 
-    if batch.repair_success:
+    if repair_run.automation_mode == AutomationMode.OBSERVATION and dry_run_ok:
+        repair_run.repair_success = True
+        repair_run.message = "Observation complete: diagnosis and patch generated (not applied)."
+        repair_run.status = RepairStatus.COMPLETED
+    elif batch.repair_success:
+        repair_run.repair_success = True
+        repair_run.message = batch.message
         repair_run.status = RepairStatus.COMPLETED
         for result in batch.results:
             pr_url = (result.git_info or {}).get("pr_url")
             if pr_url:
                 repair_run.pr_url = pr_url
                 break
-    elif any(r.status == "dry_run_complete" for r in batch.results):
+    elif dry_run_ok:
+        repair_run.repair_success = False
+        repair_run.message = batch.message
         repair_run.status = RepairStatus.COMPLETED
     else:
+        repair_run.repair_success = False
+        repair_run.message = batch.message
         repair_run.status = RepairStatus.FAILED
 
     for result in batch.results:
