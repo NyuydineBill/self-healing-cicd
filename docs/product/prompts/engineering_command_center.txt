@@ -1,0 +1,33 @@
+--------------------------------------------------
+
+# PRODUCT PHILOSOPHY
+
+Nyuydine is not a repair tool.
+
+Nyuydine is an Engineering Command Center.
+
+Repair is only one capability.
+
+The platform should eventually help engineering teams:
+
+Understand repositories
+
+Monitor software delivery
+
+Diagnose failures
+
+Generate repairs
+
+Validate repairs
+
+Review pull requests
+
+Analyze engineering metrics
+
+Predict deployment risks
+
+Recommend architectural improvements
+
+Maintain organizational engineering knowledge
+
+Every new feature should strengthen this vision.

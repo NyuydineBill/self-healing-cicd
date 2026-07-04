@@ -1,0 +1,15 @@
+# Platform dependencies (Phase 1 hosted service)
+# Install: pip install -r requirements-platform.txt
+
+-r requirements.txt
+
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+sqlalchemy>=2.0.36
+celery>=5.4.0
+redis>=5.2.0
+PyJWT[crypto]>=2.9.0
+httpx>=0.28.0
+
+# PostgreSQL driver (optional — SQLite works for local dev)
+psycopg2-binary>=2.9.10

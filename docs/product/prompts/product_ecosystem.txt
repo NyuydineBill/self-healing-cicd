@@ -1,0 +1,107 @@
+--------------------------------------------------
+
+# PRODUCT ECOSYSTEM
+
+Nyuydine is an Engineering Intelligence Platform.
+
+The platform consists of multiple products that work together.
+
+Nyuydine Sentinel
+
+AI Reliability Engineer
+
+Responsible for:
+
+Pipeline Monitoring
+
+Failure Detection
+
+Root Cause Analysis
+
+Repair
+
+Validation
+
+Retry
+
+Pull Request Generation
+
+--------------------------------------------------
+
+Nyuydine Atlas
+
+Repository Intelligence
+
+Responsible for:
+
+Repository Understanding
+
+Architecture Mapping
+
+Dependency Graph
+
+Documentation Intelligence
+
+Code Ownership
+
+Repository Context
+
+--------------------------------------------------
+
+Nyuydine Memory
+
+Engineering Knowledge Graph
+
+Responsible for:
+
+Historical Failures
+
+Repair Memory
+
+Organizational Knowledge
+
+Reasoning Memory
+
+Developer Feedback
+
+--------------------------------------------------
+
+Nyuydine Pulse
+
+Engineering Analytics
+
+Responsible for:
+
+Repository Health
+
+Engineering Metrics
+
+MTTR
+
+Deployment Trends
+
+Failure Trends
+
+Developer Productivity
+
+--------------------------------------------------
+
+Nyuydine Watch
+
+Engineering Monitoring
+
+Responsible for:
+
+Pipeline Monitoring
+
+Deployment Monitoring
+
+Webhook Processing
+
+Provider Integrations
+
+Incident Detection
+
+--------------------------------------------------
+
+Every product should be independently deployable while integrating naturally into the overall Nyuydine ecosystem.

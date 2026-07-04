@@ -1,0 +1,110 @@
+--------------------------------------------------
+
+# GO-TO-MARKET (PHASE 1)
+
+This document complements mvp.txt with market-facing decisions.
+Update as you learn from design partners.
+
+--------------------------------------------------
+
+# IDEAL CUSTOMER PROFILE (INITIAL)
+
+Primary: Engineering teams (5–50 developers) using GitHub Actions who:
+
+- Ship frequently and see CI failures weekly
+- Lack dedicated DevOps/SRE headcount
+- Already use PR-based workflows
+- Are willing to trial AI-assisted repair with human review
+
+Secondary (later): DevOps consultancies and platform teams standardizing repair tooling.
+
+Not yet: Large enterprises requiring SSO, on-prem, and custom compliance on day one.
+
+--------------------------------------------------
+
+# POSITIONING (LEAD WITH THE WEDGE)
+
+Lead message:
+"AI Reliability Engineer for GitHub Actions — investigates failures, validates fixes, opens PRs."
+
+Supporting message:
+"Not a coding chatbot. A closed-loop repair system with validation and human approval."
+
+Long-term vision (master2.txt) is for investors and roadmap — not the homepage headline until Phase 4.
+
+--------------------------------------------------
+
+# COMPETITIVE FRAMING
+
+| Alternative | Nyuydine difference |
+|-------------|---------------------|
+| Manual debugging | Automated detect → diagnose → patch → validate loop |
+| Generic AI coding tools | CI-context-aware, validation-gated, PR-native |
+| CI notifications only (Slack alerts) | Actionable repair, not just alerts |
+| Self-heal scripts | Multi-agent reasoning + failure memory + explainability |
+
+Do not claim "operating system for software engineering" in Phase 1 marketing.
+
+--------------------------------------------------
+
+# PRICING HYPOTHESIS (VALIDATE, NOT FINAL)
+
+Starter (free tier):
+- 1 org, up to 3 repos, 20 repairs/month, Suggest mode only
+
+Team ($X/repo/month or $Y/seat/month):
+- Unlimited repairs, Auto-PR mode, Slack notifications, repair history
+
+Business (custom):
+- SSO, audit export, policy engine, SLA — Phase 3+
+
+Meter repairs and validation runs from day one even before billing ships.
+
+--------------------------------------------------
+
+# DESIGN PARTNER PLAN
+
+Target: 3–5 teams before public launch.
+
+Offer:
+- Free access during beta
+- Direct Slack/channel with founders
+- Influence on Phase 2 dashboard priorities
+
+Ask from them:
+- Install GitHub App on one real repo
+- Run at least 10 real failure → repair cycles
+- Weekly 15-minute feedback call for 4 weeks
+- Permission to quote anonymized metrics (MTTR reduction, repair success rate)
+
+--------------------------------------------------
+
+# SUCCESS METRICS (PHASE 1)
+
+| Metric | Target |
+|--------|--------|
+| Repair success rate (validation passes) | ≥ 60% on common failure types |
+| Time to PR (failure → PR open) | < 15 minutes median |
+| Design partner retention | ≥ 3 of 5 active after 30 days |
+| Human approval rate | Track accept vs reject (quality signal) |
+| False positive rate | Repaired code merged without rework ≥ 70% |
+
+--------------------------------------------------
+
+# LAUNCH SEQUENCE
+
+1. Private beta — design partners only (GitHub App + API, no dashboard)
+2. Public beta — waitlist, docs, minimal landing page
+3. Paid Team tier — after Phase 2 dashboard ships
+4. Broader CI providers — after GitHub retention is proven (Phase 3)
+
+--------------------------------------------------
+
+# OPEN QUESTIONS (TRACK AND RESOLVE)
+
+- Per-repo vs per-seat pricing?
+- Self-hosted option demand from enterprise prospects?
+- Minimum approval policy for regulated industries?
+- Open-source core vs fully proprietary?
+
+Record answers from design partner conversations and update this file.

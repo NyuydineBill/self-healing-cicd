@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: nyuydine
+      POSTGRES_PASSWORD: nyuydine
+      POSTGRES_DB: nyuydine
+    ports:
+      - "5432:5432"
+    volumes:
+      - nyuydine_pg:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.platform
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgresql://nyuydine:nyuydine@postgres:5432/nyuydine
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      PLATFORM_API_KEY: ${PLATFORM_API_KEY:-dev-api-key}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GITHUB_APP_ID: ${GITHUB_APP_ID}
+      GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./platform_data:/app/platform_data
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.platform
+    command: celery -A nyuydine.workers.celery_app.celery_app worker --loglevel=info
+    environment:
+      DATABASE_URL: postgresql://nyuydine:nyuydine@postgres:5432/nyuydine
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GITHUB_APP_ID: ${GITHUB_APP_ID}
+      GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY}
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./platform_data:/app/platform_data
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  nyuydine_pg:

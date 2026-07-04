@@ -1,0 +1,27 @@
+--------------------------------------------------
+
+# EXTENSIBILITY
+
+Nyuydine must support plugins.
+
+Future plugins should be installable without modifying the platform core.
+
+Plugin examples:
+
+Repository Providers
+
+Pipeline Providers
+
+LLM Providers
+
+Notification Providers
+
+Security Scanners
+
+Validation Engines
+
+Custom Agents
+
+Internal Company Policies
+
+Everything should follow clearly defined interfaces.

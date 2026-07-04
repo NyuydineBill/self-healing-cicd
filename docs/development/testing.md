@@ -405,7 +405,7 @@ Key fields in `run_*.json`:
 | `ModuleNotFoundError: self_healing` | Package not installed | Run from repo root; `pip install -e .` |
 | Docker error in validation | Docker not running | Start Docker, or let command-replay handle it |
 
-For more detail see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+For more detail see [Troubleshooting](../guides/troubleshooting.md).
 
 ---
 

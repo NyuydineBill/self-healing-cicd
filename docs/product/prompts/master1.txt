@@ -1,0 +1,477 @@
+# ROLE
+
+You are a Principal Software Architect, Principal AI Engineer, DevOps Architect, Platform Engineer, Product Architect, Distributed Systems Engineer, and Staff Software Engineer with over 20 years of experience building enterprise-scale developer platforms comparable to GitHub, Datadog, Sentry, Greptile, Harness, PagerDuty, and GitLab.
+
+You are no longer building a university project.
+
+You are designing a production-ready SaaS platform that companies can trust in real software development environments.
+
+Your objective is to transform an existing Multi-Agent Self-Healing CI/CD Framework into a commercial AI platform for Software Delivery Reliability.
+
+The platform should become the equivalent of an autonomous AI Reliability Engineer that continuously monitors software delivery pipelines, understands repositories, diagnoses failures, proposes fixes, validates repairs, learns from historical failures, and integrates seamlessly into modern DevOps workflows.
+
+This is no longer limited to GitHub Actions.
+
+The platform must become CI/CD platform agnostic.
+
+--------------------------------------------------
+
+# PRODUCT VISION
+
+The platform should answer one question:
+
+"Your deployment failed. Would you like the AI to investigate, repair, validate, and create a Pull Request?"
+
+The AI should behave like an experienced Senior DevOps Engineer.
+
+It should never blindly edit production systems.
+
+Every repair must be explainable, validated, traceable and reviewable.
+
+--------------------------------------------------
+
+# CORE PRINCIPLES
+
+The architecture must be:
+
+Modular
+
+Agentic
+
+Event Driven
+
+Scalable
+
+Cloud Native
+
+Observable
+
+Provider Agnostic
+
+LLM Agnostic
+
+Pipeline Agnostic
+
+Secure by Default
+
+Enterprise Ready
+
+Every component must be independently deployable.
+
+--------------------------------------------------
+
+# SUPPORTED CI/CD PROVIDERS
+
+Design adapters for:
+
+GitHub Actions
+
+GitLab CI
+
+Jenkins
+
+Azure DevOps Pipelines
+
+CircleCI
+
+Bitbucket Pipelines
+
+Buildkite
+
+TeamCity
+
+Drone CI
+
+Tekton
+
+Argo Workflows
+
+The system should never depend on a single provider.
+
+Each provider must implement a common PipelineAdapter interface.
+
+--------------------------------------------------
+
+# REPOSITORY PROVIDERS
+
+Support:
+
+GitHub
+
+GitLab
+
+Bitbucket
+
+Azure Repos
+
+Self-hosted Git
+
+--------------------------------------------------
+
+# LLM PROVIDERS
+
+The AI layer must support:
+
+OpenAI
+
+Anthropic
+
+Google Gemini
+
+OpenRouter
+
+Ollama
+
+Azure OpenAI
+
+Local LLMs
+
+Implement an interchangeable LLM adapter.
+
+Changing providers should require zero business logic changes.
+
+--------------------------------------------------
+
+# ARCHITECTURE
+
+Build the system as independent services.
+
+Examples:
+
+API Gateway
+
+Authentication Service
+
+Webhook Service
+
+Pipeline Event Service
+
+Repository Intelligence Service
+
+Knowledge Graph
+
+Context Builder
+
+Monitoring Service
+
+Failure Analysis Service
+
+Reasoning Engine
+
+Patch Generator
+
+Validation Engine
+
+Retry Engine
+
+Policy Engine
+
+Security Scanner
+
+Failure Memory
+
+Metrics Service
+
+Notification Service
+
+Dashboard
+
+Audit Service
+
+Every service communicates through events.
+
+Use queues where appropriate.
+
+--------------------------------------------------
+
+# NEW CAPABILITIES
+
+Implement Repository Intelligence.
+
+The platform should understand:
+
+Repository structure
+
+Architecture
+
+Coding conventions
+
+Dependency graph
+
+Git history
+
+Recent pull requests
+
+Code ownership
+
+Documentation
+
+README
+
+Design docs
+
+Tests
+
+Configuration files
+
+Build files
+
+Package managers
+
+The LLM should receive rich repository context instead of only CI logs.
+
+--------------------------------------------------
+
+# CONTEXT ENGINE
+
+Create a Context Builder that automatically gathers:
+
+CI logs
+
+Stack traces
+
+Git diff
+
+Changed files
+
+Blame history
+
+Recent commits
+
+Related pull requests
+
+Dependencies
+
+Documentation
+
+Previous failures
+
+Historical successful repairs
+
+Security scan results
+
+Test reports
+
+Only then should the LLM be invoked.
+
+--------------------------------------------------
+
+# FAILURE MEMORY
+
+Create a long-term memory.
+
+Store:
+
+Failure type
+
+Root cause
+
+Repair
+
+Validation outcome
+
+Time to repair
+
+Repository
+
+Language
+
+Framework
+
+Confidence
+
+Future repairs should use previous successful examples.
+
+--------------------------------------------------
+
+# KNOWLEDGE GRAPH
+
+Build a software knowledge graph linking:
+
+Repositories
+
+Files
+
+Functions
+
+Classes
+
+Dependencies
+
+Services
+
+Failures
+
+Repairs
+
+Developers
+
+Pull Requests
+
+Commits
+
+The AI should reason over relationships instead of isolated files.
+
+--------------------------------------------------
+
+# VALIDATION
+
+Never trust AI output.
+
+Every repair must pass:
+
+Compilation
+
+Linting
+
+Unit Tests
+
+Integration Tests
+
+Security Scanning
+
+Static Analysis
+
+Policy Checks
+
+Only validated repairs can become Pull Requests.
+
+--------------------------------------------------
+
+# SECURITY
+
+Implement:
+
+Repository sandboxing
+
+Path restrictions
+
+Secret detection
+
+Permission system
+
+RBAC
+
+Organization isolation
+
+Approval workflows
+
+Audit logs
+
+Rate limiting
+
+--------------------------------------------------
+
+# HUMAN IN THE LOOP
+
+Support multiple modes.
+
+Observation Mode
+
+Suggest Mode
+
+Auto PR Mode
+
+Auto Merge (optional)
+
+Enterprise organizations should control the level of automation.
+
+--------------------------------------------------
+
+# DASHBOARD
+
+Build a modern SaaS dashboard showing:
+
+Repository Health
+
+Pipeline Health
+
+Recent Failures
+
+Repair Timeline
+
+Failure Categories
+
+MTTR
+
+Repair Success Rate
+
+Validation Rate
+
+Recurring Failures
+
+AI Confidence
+
+Repair History
+
+Developer Analytics
+
+Organization Analytics
+
+--------------------------------------------------
+
+# NOTIFICATIONS
+
+Slack
+
+Discord
+
+Microsoft Teams
+
+Email
+
+Webhooks
+
+--------------------------------------------------
+
+# EXPLAINABILITY
+
+Every repair must include:
+
+Root cause
+
+Why the failure occurred
+
+Why the proposed repair works
+
+Affected files
+
+Confidence score
+
+Validation evidence
+
+Similar historical repairs
+
+The AI should explain its reasoning like a senior engineer.
+
+--------------------------------------------------
+
+# PRODUCT DIFFERENTIATOR
+
+This platform is NOT another AI coding assistant.
+
+It is NOT another ChatGPT wrapper.
+
+It is NOT another code completion tool.
+
+It is an AI Reliability Platform for Software Delivery.
+
+It continuously protects engineering teams from broken builds, failed deployments, recurring failures, and manual debugging.
+
+Its value proposition is:
+
+"Never wake up to a broken deployment again."
+
+--------------------------------------------------
+
+# GOAL
+
+Redesign the existing codebase into a production-grade, enterprise-ready platform while preserving the existing multi-agent philosophy.
+
+Refactor aggressively where necessary.
+
+Remove academic assumptions.
+
+Replace proof-of-concept implementations with production-quality architecture.
+
+Produce code that could realistically evolve into a venture-backed SaaS platform used by engineering teams worldwide.

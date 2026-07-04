@@ -1,0 +1,31 @@
+--------------------------------------------------
+
+# FRONTEND
+
+Use modern frontend technologies.
+
+Preferred stack:
+
+Next.js
+
+React
+
+TypeScript
+
+TailwindCSS
+
+shadcn/ui
+
+TanStack Query
+
+React Hook Form
+
+Framer Motion
+
+Recharts
+
+Avoid Bootstrap.
+
+Design should feel modern, minimal, responsive and enterprise-ready.
+
+Every interface should prioritize clarity over visual complexity.

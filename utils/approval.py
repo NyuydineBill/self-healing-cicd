@@ -1,10 +1,21 @@
 import difflib
 import sys
+from collections.abc import Callable
 
 from config.settings import get_settings
 from utils.logging import get_logger
 
 logger = get_logger("approval")
+
+ApprovalHook = Callable[[str, str, str, str | int], bool]
+
+_approval_hook: ApprovalHook | None = None
+
+
+def set_approval_hook(hook: ApprovalHook | None) -> None:
+    """Register a custom approval handler (used by the hosted platform)."""
+    global _approval_hook
+    _approval_hook = hook
 
 
 def format_patch_diff(target_file: str, original: str, patched: str, context_lines: int = 3) -> str:
@@ -33,6 +44,9 @@ def request_patch_approval(
     Priority: auto-approve → web UI → terminal prompt → reject (non-interactive).
     """
     settings = get_settings()
+
+    if _approval_hook is not None:
+        return _approval_hook(target_file, original_content, patch_content, run_id)
 
     if settings.auto_approve_patches:
         logger.info("Patch auto-approved (AUTO_APPROVE_PATCHES=true)")

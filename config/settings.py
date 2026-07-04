@@ -177,6 +177,12 @@ class Settings:
 _settings: Settings | None = None
 
 
+def reset_settings() -> None:
+    """Clear cached settings (e.g. after updating os.environ for a repair job)."""
+    global _settings
+    _settings = None
+
+
 def get_settings() -> Settings:
     global _settings
     if _settings is None:

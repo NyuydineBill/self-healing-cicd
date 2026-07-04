@@ -1,5 +1,7 @@
 # Contributing
 
+See the [documentation index](../README.md) for architecture, testing, and troubleshooting guides.
+
 ## Installation
 
 **From PyPI (recommended for users):**

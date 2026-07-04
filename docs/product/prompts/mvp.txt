@@ -1,0 +1,182 @@
+--------------------------------------------------
+
+# MVP & PHASED DELIVERY
+
+This document defines what to build now versus later.
+
+The long-term platform vision lives in master2.txt and related architecture prompts.
+Those documents describe where Nyuydine is going — not what must ship in a single sprint.
+
+Always read this file before starting implementation work.
+
+--------------------------------------------------
+
+# CURRENT STATE (FOUNDATION)
+
+The existing codebase is the starting point:
+
+- Multi-agent repair pipeline (Monitor → Analyze → Reason → Patch → Validate)
+- GitHub Actions integration (monitoring, logs, PR creation)
+- Human-in-the-loop approval (CLI, optional web approval)
+- Failure memory (local JSON)
+- Docker-based validation
+- Policy, audit, and safety controls
+
+Do not discard this foundation. Extend it incrementally.
+
+--------------------------------------------------
+
+# PRODUCT WEDGE (UNCHANGED)
+
+Nyuydine's first commercial value proposition:
+
+"Your pipeline failed. Would you like the AI to investigate, repair, validate, and create a Pull Request?"
+
+Everything in the MVP serves this loop. Nothing else is required to prove market value.
+
+--------------------------------------------------
+
+# PHASE 1 — GITHUB RELIABILITY ENGINE (BUILD NOW)
+
+Goal: A production-ready GitHub-first repair service that teams can install and trust.
+
+## In scope
+
+- GitHub App (webhooks for workflow_run failures)
+- Hosted repair worker (existing Python orchestrator, containerized)
+- GitHub Actions as the only CI/CD provider
+- GitHub as the only repository provider
+- OpenAI as default LLM (adapter interface for future providers)
+- Observation, Suggest, and Auto-PR automation modes
+- Org-scoped failure memory (upgrade from local JSON)
+- REST API for: trigger repair, list runs, approve/reject, status
+- CLI remains supported for power users and debugging
+- Audit log and explainability output (root cause, diff, validation evidence)
+- Basic usage metering (repairs per org, for future billing)
+
+## Explicitly out of scope for Phase 1
+
+- Marketing website beyond a minimal landing + docs stub
+- Full SaaS dashboard (app.nyuydine.com)
+- Jenkins, GitLab CI, Azure DevOps, CircleCI, or other CI adapters
+- Knowledge graph at function/class level
+- VS Code / JetBrains plugins
+- GraphQL API
+- Multi-region deployment
+- Enterprise SSO
+- Billing checkout (meter usage only; charge later)
+
+## Phase 1 architecture rules
+
+- Monolith-first: one deployable backend service wrapping the existing orchestrator
+- Design internal boundaries with clear interfaces (PipelineAdapter, RepoAdapter, LLMAdapter)
+- Do not build microservices yet — but code as if adapters will be swapped later
+- PostgreSQL for orgs, repos, repair runs, failure memory
+- Redis for job queue (Celery or equivalent) — one queue, not five services
+- No premature abstraction: one GitHub adapter implementation is enough for now
+
+## Phase 1 success criteria
+
+- GitHub App installs on a real repo and auto-triggers on CI failure
+- Repair success rate matches or exceeds local CLI baseline
+- Human can approve or reject before merge
+- End-to-end run is traceable (audit + stored result)
+- 3–5 design-partner teams using it on real failures
+
+--------------------------------------------------
+
+# PHASE 2 — TEAM PRODUCT (AFTER PHASE 1 WORKS)
+
+Goal: Make Nyuydine usable by engineering teams without CLI access.
+
+## In scope
+
+- Minimal web dashboard (failures, repairs, diffs, approve/reject)
+- Organization and team management
+- Repository connection UI (GitHub App install flow)
+- Repair history and MTTR metrics
+- Slack notifications
+- Billing integration (Stripe or equivalent)
+- Improved failure memory (search past repairs, similar failures)
+
+## Still out of scope
+
+- Additional CI/CD providers
+- Knowledge graph
+- Enterprise SSO
+- Full marketing site
+
+## Phase 2 architecture rules
+
+- Frontend is a separate Next.js app (see frontend.txt) consuming the Phase 1 API
+- Backend API remains monolith; add endpoints, do not split services
+- Real-time updates via WebSocket or SSE where needed
+
+--------------------------------------------------
+
+# PHASE 3 — PLATFORM EXPANSION (AFTER PHASE 2 PROVES RETENTION)
+
+Goal: Broaden integrations and enterprise readiness.
+
+## In scope (priority order)
+
+1. GitLab CI + GitLab repos
+2. Additional LLM providers (Anthropic, Azure OpenAI, Ollama)
+3. Jenkins adapter (self-hosted webhook model)
+4. Policy engine UI (org-level repair rules)
+5. Enterprise SSO (SAML/OIDC)
+6. PagerDuty / Opsgenie notifications
+
+## Architecture rules
+
+- Each new CI provider implements PipelineAdapter — no changes to agent logic
+- Each new git host implements RepoAdapter
+- Extract a provider only into its own service if operational load demands it
+
+--------------------------------------------------
+
+# PHASE 4 — ENGINEERING INTELLIGENCE (LONG-TERM VISION)
+
+Goal: Evolve from repair tool to Engineering Command Center (see master2.txt).
+
+## In scope (only when prior phases are stable)
+
+- Repository intelligence (architecture mapping, dependency context)
+- Engineering knowledge graph (start with repo → file → failure → repair edges)
+- Engineering analytics (Pulse)
+- Azure DevOps, CircleCI, Buildkite, and remaining adapters
+- Plugin SDK for custom agents and validators
+- MCP server for external AI agents
+
+This phase implements the full product_ecosystem.txt vision incrementally.
+Do not start Phase 4 work until Phase 2 has paying customers.
+
+--------------------------------------------------
+
+# DECISION FILTER FOR EVERY TASK
+
+Before implementing any feature, answer:
+
+1. Which phase does this belong to?
+2. If it is not Phase 1, stop — log it as future work unless Phase 1 is complete.
+3. Does this feature improve the repair loop for GitHub Actions users today?
+4. Can we ship it in under two weeks?
+5. Does the interface allow a future provider swap without rewriting agents?
+
+If answers are unclear, default to the smallest change that strengthens Phase 1.
+
+--------------------------------------------------
+
+# WHAT "SCALABLE ARCHITECTURE" MEANS HERE
+
+Scalable does not mean microservices on day one.
+
+It means:
+
+- Adapter interfaces for providers (CI, repo, LLM) even with one implementation
+- Event-shaped data models (repair requested, diagnosed, patched, validated, pr_opened)
+- Tenant isolation in the database from the start (org_id on every row)
+- Stateless workers behind a queue
+- No business logic tied to GitHub-specific response shapes outside adapters
+
+Build a modular monolith. Split services when pain is real, not imagined.

@@ -1,5 +1,7 @@
 # Troubleshooting
 
+See the [documentation index](../README.md) for architecture and testing guides.
+
 ## Pre-flight Check
 
 Run `python main.py check` before anything else. It validates your tokens, Docker, and prompt templates and tells you exactly what is missing.

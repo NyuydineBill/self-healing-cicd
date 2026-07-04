@@ -1,0 +1,87 @@
+--------------------------------------------------
+
+# FINAL DECISION RULE
+
+Whenever multiple implementation approaches are possible, choose the solution that best balances shipping value now with platform longevity.
+
+Apply these rules in order:
+
+--------------------------------------------------
+
+# 1. SHIP THE WEDGE FIRST
+
+Prefer the approach that gets a real GitHub user through the full repair loop sooner:
+
+detect failure → diagnose → patch → validate → PR (or human approval).
+
+If an option does not improve Phase 1 (see mvp.txt), defer it.
+
+Avoid building infrastructure for problems you do not have yet.
+
+--------------------------------------------------
+
+# 2. DESIGN FOR SWAP, NOT FOR SPRAWL
+
+Prefer modular boundaries inside a monolith:
+
+- PipelineAdapter for CI/CD providers (GitHub Actions first)
+- RepoAdapter for git hosts (GitHub first)
+- LLMAdapter for model providers (OpenAI first)
+
+Interfaces and clean seams matter more than service count.
+One GitHub adapter behind an interface beats five empty microservices.
+
+--------------------------------------------------
+
+# 3. FAVOR LONG-TERM QUALITY WHEN COST IS LOW
+
+When two options ship equally fast, prefer the one that improves:
+
+- Maintainability
+- Testability
+- Tenant isolation (org-scoped data from day one)
+- Observability (structured logs, traceable repair runs)
+- Security (approval gates, audit trail, path restrictions)
+
+Do not gold-plate. Apply this rule only when delivery time is roughly equal.
+
+--------------------------------------------------
+
+# 4. DEFER EXPENSIVE SCALE DECISIONS
+
+Postpone until load or customers require them:
+
+- Splitting the monolith into microservices
+- Multi-region deployment
+- Knowledge graph infrastructure
+- Additional CI/CD providers beyond the current phase
+- Full dashboard / frontend (Phase 2 in mvp.txt)
+
+Prepare extension points. Do not implement every extension point immediately.
+
+--------------------------------------------------
+
+# 5. EXPAND DELIBERATELY
+
+Integrations follow this order unless mvp.txt is updated:
+
+1. GitHub Actions + GitHub repos (Phase 1)
+2. Team dashboard and notifications (Phase 2)
+3. GitLab, then Jenkins, then remaining CI providers (Phase 3)
+4. Engineering intelligence and knowledge graph (Phase 4)
+
+Never add a new provider until the previous phase is stable in production.
+
+--------------------------------------------------
+
+# 6. THE TIE-BREAKER QUESTION
+
+Ask:
+
+"Would this decision block us if Nyuydine had 10,000 organizations tomorrow?"
+
+- If yes (e.g. no tenant isolation, hardcoded single-user assumptions) — fix it now.
+- If no (e.g. separate microservice per agent) — defer it.
+
+Build for the platform Nyuydine will become.
+Do not build the entire platform before the first customer succeeds.

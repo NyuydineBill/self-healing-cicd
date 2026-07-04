@@ -2,6 +2,8 @@
 
 A multi-agent Python framework that detects GitHub Actions failures, diagnoses them with an LLM, generates patches, validates fixes in Docker, and optionally opens a pull request.
 
+**Documentation:** [docs/](docs/README.md) — architecture, guides, platform deployment, development, and project policies.
+
 ## Quick start
 
 ```bash
@@ -28,6 +30,10 @@ pytest tests/
 ```
 
 ## Production deployment
+
+For the **hosted Nyuydine platform** (GitHub App + API + worker), see [Platform deployment](docs/platform/deployment.md).
+
+Full documentation: **[docs/](docs/README.md)**
 
 Full-product flow for teams using GitHub Actions end-to-end.
 
@@ -207,7 +213,7 @@ flowchart TB
 | `results/` | Runtime JSON metrics and repair history (gitignored) |
 | `logs/` | Downloaded workflow ZIPs and extracted logs (gitignored) |
 
-See [UPDATES.md](UPDATES.md) for the full changelog.
+See [Changelog](docs/project/changelog.md) for the full version history.
 
 ### Project layout
 
@@ -229,6 +235,8 @@ self-healing-cicd/
 ├── logs/                   # Runtime — created on first log fetch
 ├── results/                # Runtime — JSON + backups (results/.gitkeep only in git)
 ├── scripts/                # go-live.sh, trigger-ci-failure.sh
+├── docs/                   # Architecture, guides, platform, development docs
+├── nyuydine/               # Phase 1 hosted platform (API, worker, adapters)
 └── Dockerfile              # Validation image for ValidationAgent
 ```
 

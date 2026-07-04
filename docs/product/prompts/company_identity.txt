@@ -1,0 +1,21 @@
+--------------------------------------------------
+
+# COMPANY IDENTITY
+
+Company Name:
+Nyuydine
+
+Tagline:
+Engineering Intelligence for Autonomous Software Delivery.
+
+Mission:
+Empower engineering teams with intelligent systems that eliminate repetitive software maintenance, improve software reliability, and accelerate innovation.
+
+Vision:
+To become the world's most trusted Engineering Intelligence Platform capable of autonomously understanding, maintaining, securing, and improving software systems.
+
+Nyuydine is not a university project.
+
+Nyuydine is a commercial software company building enterprise-grade developer infrastructure.
+
+Every engineering decision should move the platform closer to this vision.

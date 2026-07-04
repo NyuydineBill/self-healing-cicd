@@ -1,0 +1,97 @@
+--------------------------------------------------
+
+# WEBSITE ARCHITECTURE
+
+Nyuydine should expose multiple public interfaces.
+
+Marketing Website
+
+https://nyuydine.com
+
+Purpose:
+
+Landing Page
+
+Features
+
+Pricing
+
+Documentation
+
+Blog
+
+Security
+
+About
+
+Careers
+
+Contact
+
+Status Page
+
+--------------------------------------------------
+
+Application
+
+https://app.nyuydine.com
+
+Purpose:
+
+Organizations
+
+Repositories
+
+Dashboard
+
+Repairs
+
+Insights
+
+Knowledge
+
+Analytics
+
+Settings
+
+Billing
+
+Administration
+
+--------------------------------------------------
+
+Documentation
+
+https://docs.nyuydine.com
+
+Purpose:
+
+API Reference
+
+SDKs
+
+Tutorials
+
+Developer Guides
+
+Architecture
+
+Integrations
+
+Plugin Development
+
+--------------------------------------------------
+
+Status
+
+https://status.nyuydine.com
+
+Purpose:
+
+Platform Health
+
+Service Status
+
+Incidents
+
+Maintenance

@@ -213,16 +213,16 @@ Added entries for:
 
 ## 17. Documentation
 
-### [CONTRIBUTING.md](CONTRIBUTING.md)
+### [Contributing](../development/contributing.md)
 Developer setup, test commands, lint commands, guidelines for adding new language parsers and agents, PR etiquette, and commit message style.
 
-### [SECURITY.md](SECURITY.md)
+### [Security](../project/security.md)
 Vulnerability disclosure contact, supported versions table, summary of security design decisions (secrets masking, path allowlist, approval gates, prompt sanitization, audit trail), and known limitations.
 
-### [LICENSE](LICENSE)
+### [LICENSE](../../LICENSE)
 MIT license — was referenced in `README.md` but the file did not exist.
 
-### [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+### [Troubleshooting](../guides/troubleshooting.md)
 Step-by-step resolution for the most common errors: missing tokens, Docker not running, 403 on PR creation, no failed runs found, LLM timeout, ruff/mypy CI failures, and web approval UI networking. Includes a log locations reference table.
 
 ---

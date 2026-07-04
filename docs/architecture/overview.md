@@ -1,4 +1,6 @@
-# Self-Healing CI/CD — Architecture & Defense Guide
+# Architecture & Defense Guide
+
+> Part of the [project documentation](../README.md).
 
 This document is the authoritative reference for how the project is designed, built, and evaluated. It is written for thesis defense, technical review, and onboarding: you should be able to answer jury questions from this page alone.
 
@@ -564,7 +566,7 @@ git push                        # Test Pipeline fails
 - Web approval UI has no authentication (localhost only)
 - Single CI provider (GitHub Actions only)
 
-See also [SECURITY.md](SECURITY.md).
+See also [Security policy](../project/security.md).
 
 ---
 
@@ -834,13 +836,13 @@ pytest tests/ sample_projects/
 
 | Document | Purpose |
 |----------|---------|
-| [README.md](README.md) | Quick start and user guide |
-| [UPDATES.md](UPDATES.md) | Detailed changelog by version |
-| [TESTING.md](TESTING.md) | How to run tests |
-| [SECURITY.md](SECURITY.md) | Vulnerability reporting and security design |
-| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common operational issues |
-| [sample_projects/README.md](sample_projects/README.md) | Demo scenario catalog |
-| [IMPROVEMENTS.md](IMPROVEMENTS.md) | Enhancement backlog |
+| [README](../../README.md) | Quick start and user guide |
+| [Changelog](../project/changelog.md) | Detailed changelog by version |
+| [Testing](../development/testing.md) | How to run tests |
+| [Security](../project/security.md) | Vulnerability reporting and security design |
+| [Troubleshooting](../guides/troubleshooting.md) | Common operational issues |
+| [sample_projects/README.md](../../sample_projects/README.md) | Demo scenario catalog |
+| [Improvements](../project/improvements.md) | Enhancement backlog |
 
 ---
 

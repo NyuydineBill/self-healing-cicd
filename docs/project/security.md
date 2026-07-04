@@ -1,5 +1,7 @@
 # Security Policy
 
+See also the [architecture overview](../architecture/overview.md) and [documentation index](../README.md).
+
 ## Supported Versions
 
 | Version | Supported |

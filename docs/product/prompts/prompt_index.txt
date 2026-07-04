@@ -1,0 +1,61 @@
+--------------------------------------------------
+
+# PROMPT INDEX — HOW TO USE THIS FOLDER
+
+> Human-readable index: see [README.md](README.md)
+
+These files guide AI-assisted development of Nyuydine from thesis prototype to commercial platform.
+
+They are not a single-day build list. They are layered instructions.
+
+--------------------------------------------------
+
+# ASSEMBLY ORDER (ALWAYS USE IN THIS ORDER)
+
+1. mvp.txt              — What to build NOW and what to defer (read first)
+2. final_decision_rule.txt — How to choose between approaches
+3. master2.txt          — Long-term platform vision and architecture
+4. company_identity.txt — Brand, mission, positioning
+
+Then add context-specific files only when relevant:
+
+| File | Use when |
+|------|----------|
+| plugin_system.txt | Designing adapters or provider interfaces |
+| backend.txt | Building or extending the API / worker layer |
+| frontend.txt | Phase 2+ dashboard work only |
+| dashboard.txt | Phase 2+ dashboard UX spec |
+| engineering_command_center.txt | Phase 4 positioning / full product UX |
+| product_ecosystem.txt | Naming and modular product boundaries (future) |
+| website_architecture.txt | Marketing site and public domains (later) |
+
+--------------------------------------------------
+
+# DEPRECATED
+
+master1.txt — Superseded by master2.txt + mvp.txt. Keep for reference only.
+Do not concatenate master1.txt into active prompts.
+
+--------------------------------------------------
+
+# KEY PRINCIPLE
+
+| Document | Answers |
+|----------|---------|
+| mvp.txt | "What do we build this sprint?" |
+| final_decision_rule.txt | "Which design option do we pick?" |
+| master2.txt | "Where is the platform going in 2–3 years?" |
+| company_identity.txt | "Who are we and what do we promise?" |
+
+Vision without phasing causes over-engineering.
+Phasing without vision causes rework.
+Use both.
+
+--------------------------------------------------
+
+# CURRENT FOCUS
+
+Phase 1 — GitHub Reliability Engine
+
+GitHub App + hosted worker + repair API + org-scoped memory.
+No dashboard. No Jenkins. No knowledge graph. Yet.

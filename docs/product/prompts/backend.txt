@@ -1,0 +1,27 @@
+--------------------------------------------------
+
+# BACKEND
+
+Preferred technologies:
+
+Python
+
+FastAPI
+
+PostgreSQL
+
+Redis
+
+Celery
+
+SQLAlchemy
+
+Alembic
+
+Docker
+
+Kubernetes (future)
+
+MinIO / S3
+
+The backend should expose both REST APIs and WebSocket endpoints where real-time communication is required.
